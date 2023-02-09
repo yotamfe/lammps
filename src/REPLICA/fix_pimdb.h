@@ -38,36 +38,11 @@ class FixPIMDB : public FixPIMD {
   void final_integrate();
   void end_of_step();
 
-  double memory_usage();
-  void grow_arrays(int);
-  void copy_arrays(int,int,int);
-  int pack_exchange(int,double*);
-  int unpack_exchange(int,double*);
-  int pack_restart(int,double*);
-  void unpack_restart(int,int);
-  int maxsize_restart();
-  int size_restart(int);
-  double compute_vector(int);
-
-  int pack_forward_comm(int, int*, double *, int, int*);
-  void unpack_forward_comm(int, int, double *);
-
   void spring_force();
   double Evaluate_Ekn(const int n, const int k);
   std::vector<double> Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum);
   std::vector<double> Evaluate_VBn(std::vector <double>& V, const int n);
   std::vector<std::vector<double>> Evaluate_dVBn(const std::vector <double>& V, const std::vector <double>& save_E_kn, const int n);
-
-  void comm_init();
-  void comm_exec(double **);
-
-  void nmpimd_init();
-  void nmpimd_fill(double**);
-  void nmpimd_transform(double**, double**, double*);
-
-  void nhc_init();
-  void nhc_update_v();
-  void nhc_update_x();
 
   std::vector<double> E_kn;
   std::vector<double> V;
