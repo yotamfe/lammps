@@ -30,12 +30,8 @@ class FixPIMDB : public FixPIMD {
   FixPIMDB(class LAMMPS *, int, char **);
 
   int setmask();
-
-  void init();
-  void setup(int);
+  
   void post_force(int);
-  void initial_integrate(int);
-  void final_integrate();
   void end_of_step();
 
   void spring_force();
