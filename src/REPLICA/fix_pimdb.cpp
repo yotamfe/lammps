@@ -45,116 +45,12 @@ enum{PIMD,NMPIMD,CMD};
 
 /* ---------------------------------------------------------------------- */
 
-FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 {
-  method     = PIMD;
-  fmass      = 1.0;
-  nhc_temp   = 298.15;
-  nhc_nchain = 2;
-  sp         = 1.0;
-  nevery     = 100;
   nbosons    = atom->nlocal;
-
-  for(int i=3; i<narg-1; i+=2)
-  {
-    if(strcmp(arg[i],"method")==0)
-    {
-      if(strcmp(arg[i+1],"pimd")==0) method=PIMD;
-      else if(strcmp(arg[i+1],"nmpimd")==0) method=NMPIMD;
-      else if(strcmp(arg[i+1],"cmd")==0) method=CMD;
-      else error->universe_all(FLERR,"Unkown method parameter for fix pimd-B");
-    }
-    else if(strcmp(arg[i],"fmass")==0)
-    {
-      fmass = atof(arg[i+1]);
-      if(fmass<0.0 || fmass>1.0) error->universe_all(FLERR,"Invalid fmass value for fix pimd-B");
-    }
-    else if(strcmp(arg[i],"sp")==0)
-    {
-      sp = atof(arg[i+1]);
-      if(fmass<0.0) error->universe_all(FLERR,"Invalid sp value for fix pimd-B");
-    }
-    else if(strcmp(arg[i],"temp")==0)
-    {
-      nhc_temp = atof(arg[i+1]);
-      if(nhc_temp<0.0) error->universe_all(FLERR,"Invalid temp value for fix pimd-B");
-    }
-    else if(strcmp(arg[i],"nhc")==0)
-    {
-      nhc_nchain = atoi(arg[i+1]);
-      if(nhc_nchain<2) error->universe_all(FLERR,"Invalid nhc value for fix pimd-B");
-    }
-    else if(strcmp(arg[i],"nbosons")==0)
-    {
-      fprintf(screen,"WARNING: USING nbosons IN THE INPUT ASSUMES THAT THEY ARE FIRST! 1,...,nbosons\n");
-      fprintf(logfile,"WARNING: USING nbosons IN THE INPUT ASSUMES THAT THEY ARE FIRST! 1,...,nbosons\n");
-      nbosons = atoi(arg[i+1]);
-      if(nbosons<2 || nbosons>atom->nlocal) error->universe_all(FLERR,"Invalid nbosons value for fix pimd-B");
-    }
-    else error->universe_all(arg[i],i+1,"Unkown keyword for fix pimd-B");
-  }
 
   E_kn = std::vector<double>((nbosons * (nbosons + 1) / 2),0.0);
   V = std::vector<double>((nbosons + 1),0.0);
-
-  int count = 0;
-  int *mask = atom->mask;
-  for(int i=0; i<atom->nlocal; ++i){
-    if(mask[i] & groupbit) count++;
-  }
-  if (nbosons != count) error->universe_all(FLERR,"Invalid nbosons value for fix pimd-B, nbosons != # of atoms in group");
-
-  /* Initiation */
-
-  max_nsend = 0;
-  tag_send = NULL;
-  buf_send = NULL;
-
-  max_nlocal = 0;
-  buf_recv = NULL;
-  buf_beads = NULL;
-
-  size_plan = 0;
-  plan_send = plan_recv = NULL;
-
-  M_x2xp = M_xp2x = M_f2fp = M_fp2f = NULL;
-  lam = NULL;
-  mode_index = NULL;
-
-  mass = NULL;
-
-  array_atom = NULL;
-  nhc_eta = NULL;
-  nhc_eta_dot = NULL;
-  nhc_eta_dotdot = NULL;
-  nhc_eta_mass = NULL;
-
-  size_peratom_cols = 12 * nhc_nchain + 3;
-
-  nhc_offset_one_1 = 3 * nhc_nchain;
-  nhc_offset_one_2 = 3 * nhc_nchain +3;
-  nhc_size_one_1 = sizeof(double) * nhc_offset_one_1;
-  nhc_size_one_2 = sizeof(double) * nhc_offset_one_2;
-
-  restart_peratom = 1;
-  peratom_flag    = 1;
-  peratom_freq    = 1;
-
-  global_freq = 1;
-  thermo_energy = 1;
-  vector_flag = 1;
-  size_vector = 3;
-  extvector   = 1;
-  comm_forward = 3;
-
-  atom->add_callback(0); // Call LAMMPS to allocate memory for per-atom array
-  atom->add_callback(1); // Call LAMMPS to re-assign restart-data for per-atom array
-
-  grow_arrays(atom->nmax);
-
-  // some initilizations
-
-  nhc_ready = false;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -392,7 +288,7 @@ void FixPIMDB::nhc_update_v()
     int iatm = i/3;
     if(mask[iatm] & groupbit){
         int idim = i%3;
-    
+
         double *vv = v[iatm];
 
         kecurrent = mass[type[iatm]] * vv[idim]* vv[idim] * force->mvv2e;
@@ -416,23 +312,23 @@ void FixPIMDB::nhc_update_v()
         eta_dot[0] *= expfac;
         eta_dot[0] += eta_dotdot[0] * dt4;
         eta_dot[0] *= expfac;
-    
+
         // Update particle velocities half-step
-    
+
         double factor_eta = exp(-dthalf * eta_dot[0]);
         vv[idim] *= factor_eta;
-    
+
         t_current *= (factor_eta * factor_eta);
         kecurrent = force->boltz * t_current;
         eta_dotdot[0] = (kecurrent - KT) / nhc_eta_mass[i][0];
-    
+
         for(int ichain=0; ichain<nhc_nchain; ichain++)
           eta[ichain] += dthalf * eta_dot[ichain];
-    
+
         eta_dot[0] *= expfac;
         eta_dot[0] += eta_dotdot[0] * dt4;
         eta_dot[0] *= expfac;
-    
+
         for(int ichain=1; ichain<nhc_nchain; ichain++)
         {
           expfac = exp(-dt8 * eta_dot[ichain+1]);
@@ -442,7 +338,7 @@ void FixPIMDB::nhc_update_v()
           eta_dot[ichain] += eta_dotdot[ichain] * dt4;
           eta_dot[ichain] *= expfac;
         }
-    
+
         t_sys += t_current;
     }
   }
@@ -532,7 +428,7 @@ void FixPIMDB::nmpimd_transform(double** src, double** des, double *vector)
   int *mask = atom->mask;
 
   for(int i=0; i<n; i++) {
-      for(int d=0; d<3; d++) 
+      for(int d=0; d<3; d++)
       {
 	if(mask[i] & groupbit) {
           des[i][d] = 0.0;
