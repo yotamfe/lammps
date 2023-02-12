@@ -48,7 +48,7 @@ enum{PIMD,NMPIMD,CMD};
 FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 {
   nbosons    = atom->nlocal;
-  nevery     = 100;
+  nevery     = 100; // TODO: make configurable (thermo_style?)
 
   E_kn = std::vector<double>((nbosons * (nbosons + 1) / 2),0.0);
   V = std::vector<double>((nbosons + 1),0.0);
@@ -331,6 +331,7 @@ void FixPIMDB::end_of_step() {
     //std::cout << "E1\tE12\tE2\tE123\tE23\tE3\tVB0\tVB1\tVB2\tVB3" <<std::endl;
     //#! FIELDS time E1 E2 E12 E3 E23 E123 VB1 VB2 VB3 E_ox3 Vr.bias
       std::ofstream myfile;
+      // TODO: make sure that the file is created the first time, not appending to old results
       myfile.open ("pimdb.log", std::ios::out | std::ios::app);
 
       for (double val: E_kn)
