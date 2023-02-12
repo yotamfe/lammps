@@ -48,6 +48,7 @@ enum{PIMD,NMPIMD,CMD};
 FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 {
   nbosons    = atom->nlocal;
+  nevery     = 100;
 
   E_kn = std::vector<double>((nbosons * (nbosons + 1) / 2),0.0);
   V = std::vector<double>((nbosons + 1),0.0);
