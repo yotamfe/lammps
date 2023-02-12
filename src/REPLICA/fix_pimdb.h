@@ -29,12 +29,11 @@ class FixPIMDB : public FixPIMD {
  public:
   FixPIMDB(class LAMMPS *, int, char **);
 
-  int setmask();
-  
-  void post_force(int);
-  void end_of_step();
+  int setmask() override;
 
-  void spring_force();
+  void end_of_step() override;
+
+  void spring_force() override;
   double Evaluate_Ekn(const int n, const int k);
   std::vector<double> Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum);
   std::vector<double> Evaluate_VBn(std::vector <double>& V, const int n);
@@ -42,9 +41,7 @@ class FixPIMDB : public FixPIMD {
 
   std::vector<double> E_kn;
   std::vector<double> V;
-  double virial;
   int nbosons;
-
 };
 
 

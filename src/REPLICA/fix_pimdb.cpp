@@ -57,44 +57,9 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 
 int FixPIMDB::setmask()
 {
-  int mask = 0;
-  mask |= POST_FORCE;
-  mask |= INITIAL_INTEGRATE;
-  mask |= FINAL_INTEGRATE;
+  int mask = FixPIMD::setmask();
   mask |= END_OF_STEP;
   return mask;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixPIMDB::post_force(int /*flag*/)
-{
-  int *mask = atom->mask;
-
-  for(int i=0; i<atom->nlocal; i++){
-    if(mask[i] & groupbit){
-        for(int j=0; j<3; j++)
-            atom->f[i][j] /= np;
-    }
-  }
-
-  comm_exec(atom->x);
-  spring_force();
-
-  if(method==CMD || method==NMPIMD)
-  {
-    /* forward comm for the force on ghost atoms */
-
-    nmpimd_fill(atom->f);
-
-    /* inter-partition comm */
-
-    comm_exec(atom->f);
-
-    /* normal-mode transform */
-
-    nmpimd_transform(buf_beads, atom->f, M_f2fp[universe->iworld]);
-  }
 }
 
 /* ---------------------------------------------------------------------- */

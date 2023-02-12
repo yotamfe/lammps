@@ -60,7 +60,7 @@ class FixPIMD : public Fix {
   double omega_np, fbond, spring_energy, sp, virial;
   int x_last, x_next;
 
-  void spring_force();
+  virtual void spring_force();
 
   /* fictitious mass */
 
