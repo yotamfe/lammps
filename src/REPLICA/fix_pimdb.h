@@ -31,6 +31,7 @@ class FixPIMDB : public FixPIMD {
 
   int setmask() override;
 
+  void setup(int) override;
   void end_of_step() override;
 
   void spring_force() override;

@@ -64,6 +64,14 @@ int FixPIMDB::setmask()
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDB::setup(int vflag)
+{
+  FixPIMD::setup(vflag);
+  end_of_step();
+}
+
+/* ---------------------------------------------------------------------- */
+
 //dE_n^(k) is a function of k atoms (R_n-k+1,...,R_n) for a given n and k.
 std::vector<double> FixPIMDB::Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum)
 {
