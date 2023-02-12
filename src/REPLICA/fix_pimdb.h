@@ -36,9 +36,13 @@ class FixPIMDB : public FixPIMD {
 
   void spring_force() override;
   double Evaluate_Ekn(const int n, const int k);
+
+ private:
+  void evaluate_cycle_energies();
+  double get_Enk(int m, int k);
   std::vector<double> Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum);
-  std::vector<double> Evaluate_VBn(std::vector <double>& V, const int n);
-  std::vector<std::vector<double>> Evaluate_dVBn(const std::vector <double>& V, const std::vector <double>& save_E_kn, const int n);
+  void Evaluate_VBn(std::vector <double>& V, const int n);
+  std::vector<std::vector<double>> Evaluate_dVBn(const std::vector <double>& V, const int n);
 
   std::vector<double> E_kn;
   std::vector<double> V;

@@ -139,6 +139,24 @@ std::vector<double> FixPIMDB::Evaluate_dEkn_on_atom(const int n, const int k, co
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDB::evaluate_cycle_energies()
+{
+  int count = 0;
+  for (int m = 1; m < nbosons + 1; m++) {
+    for (int k = m; k > 0; k--) {
+      E_kn.at(count) = Evaluate_Ekn(m, k);
+      count++;
+    }
+  }
+}
+
+double FixPIMDB::get_Enk(int m, int k) {
+  int end_of_m = m * (m + 1) / 2;
+  return E_kn.at(end_of_m - k);
+}
+
+/* ---------------------------------------------------------------------- */
+
 //E_n^(k) is a function of k atoms (R_n-k+1,...,R_n) for a given n and k.
 double FixPIMDB::Evaluate_Ekn(const int n, const int k)
 {
@@ -200,7 +218,7 @@ double FixPIMDB::Evaluate_Ekn(const int n, const int k)
 }
 
 std::vector<std::vector<double>>
-FixPIMDB::Evaluate_dVBn(const std::vector<double> &V, const std::vector<double> &save_E_kn, const int n) {
+FixPIMDB::Evaluate_dVBn(const std::vector<double> &V, const int n) {
 
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
@@ -224,21 +242,16 @@ FixPIMDB::Evaluate_dVBn(const std::vector<double> &V, const std::vector<double> 
           dV.at(m) = {0.0,0.0,0.0};
         }else{
 
-          int count = m*(m-1)/2;
-
-	  double Elongest = std::min((Evaluate_Ekn(m,1)+V.at(m-1)), (Evaluate_Ekn(m,m)+V.at(0)));
+	  double Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
 
             for (int k = m; k > 0; --k) {
                 std::vector<double> dE_kn(3,0.0);
 
                 dE_kn = Evaluate_dEkn_on_atom(m,k,atomnum);
                 
-                sig.at(0) += (dE_kn.at(0) + dV.at(m - k).at(0)) * exp(-beta * (save_E_kn.at(count) + V.at(m - k)-Elongest));
-                sig.at(1) += (dE_kn.at(1) + dV.at(m - k).at(1)) * exp(-beta * (save_E_kn.at(count) + V.at(m - k)-Elongest));
-                sig.at(2) += (dE_kn.at(2) + dV.at(m - k).at(2)) * exp(-beta * (save_E_kn.at(count) + V.at(m - k)-Elongest));
-
-                count++;
-
+                sig.at(0) += (dE_kn.at(0) + dV.at(m - k).at(0)) * exp(-beta * (get_Enk(m, k) + V.at(m - k)-Elongest));
+                sig.at(1) += (dE_kn.at(1) + dV.at(m - k).at(1)) * exp(-beta * (get_Enk(m, k) + V.at(m - k)-Elongest));
+                sig.at(2) += (dE_kn.at(2) + dV.at(m - k).at(2)) * exp(-beta * (get_Enk(m, k) + V.at(m - k)-Elongest));
             }
 
             double  sig_denom_m = (double)m*exp(-beta*(V.at(m)-Elongest));
@@ -275,28 +288,20 @@ FixPIMDB::Evaluate_dVBn(const std::vector<double> &V, const std::vector<double> 
 
 }
 
-std::vector<double> FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
+void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
 {
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
-  std::vector<double> save_E_kn(n*(n+1)/2);
 
-  int count = 0;
   for (int m = 1; m < n+1; ++m) {
     double sig_denom = 0.0;
     double Elongest=0.0;
 
-    Elongest = std::min((Evaluate_Ekn(m,1)+V.at(m-1)), (Evaluate_Ekn(m,m)+V.at(0)));
+    Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
     for (int k = m; k > 0; --k) {
           double E_kn;
 
-          E_kn = Evaluate_Ekn(m,k);
-
-          sig_denom += exp(-beta*(E_kn + V.at(m-k)-Elongest));
-
-          save_E_kn.at(count) = E_kn;
-          count++;
-
+          sig_denom += exp(-beta*(get_Enk(m,k) + V.at(m-k)-Elongest));
     }
 
     V.at(m) = Elongest-1.0/beta*log(sig_denom / (double)m);
@@ -307,21 +312,19 @@ std::vector<double> FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
           exit(0);
     }
   }
-
-  return save_E_kn;
-
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixPIMDB::spring_force() {
 
+    evaluate_cycle_energies();
+
     V.at(0) = 0.0;
     std::vector<std::vector<double>> dV(nbosons * universe->nworlds, std::vector<double>(3, 0.0));
 
-    E_kn = Evaluate_VBn(V, nbosons);
-    dV = Evaluate_dVBn(V,E_kn,nbosons);
-
+    Evaluate_VBn(V, nbosons);
+    dV = Evaluate_dVBn(V, nbosons);
 }
 
 //FOR PRINTING ENERGIES AND POTENTIALS FOR PIMD-B
