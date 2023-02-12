@@ -320,11 +320,17 @@ void FixPIMDB::spring_force() {
 
     evaluate_cycle_energies();
 
-    V.at(0) = 0.0;
-    std::vector<std::vector<double>> dV(nbosons * universe->nworlds, std::vector<double>(3, 0.0));
+    if (universe->me != 0 && universe->me != np - 1) {
+      // interior beads
+      FixPIMD::spring_force();
+    } else {
+      // exterior beads
+      V.at(0) = 0.0;
+      std::vector<std::vector<double>> dV(nbosons * universe->nworlds, std::vector<double>(3, 0.0));
 
-    Evaluate_VBn(V, nbosons);
-    dV = Evaluate_dVBn(V, nbosons);
+      Evaluate_VBn(V, nbosons);
+      dV = Evaluate_dVBn(V, nbosons);
+    }
 }
 
 //FOR PRINTING ENERGIES AND POTENTIALS FOR PIMD-B
