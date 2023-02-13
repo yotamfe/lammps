@@ -163,20 +163,40 @@ void FixPIMDB::evaluate_cycle_energies()
     intra_atom_spring_local[i] = spring_energy_two_beads(*x, i, buf_beads[x_next], i);
   }
 
+  // TODO: enough to communicate to replicas 0,np-1
   MPI_Allreduce(intra_atom_spring_local, separate_atom_spring, nbosons,
                 MPI_DOUBLE, MPI_SUM, universe->uworld);
 
   memory->destroy(intra_atom_spring_local);
 
-  for (int m = 1; m < nbosons + 1; m++) {
-    set_Enk(m, 1, separate_atom_spring[m - 1]);
-  }
+  if (universe->me == 0 || universe->me == np - 1) {
 
-  int count = 0;
-  for (int m = 1; m < nbosons + 1; m++) {
-    for (int k = m; k > 0; k--) {
-      E_kn.at(count) = Evaluate_Ekn(m, k);
-      count++;
+    double* x_first_bead;
+    double* x_last_bead;
+    if (universe->me == 0) {
+      x_first_bead = *x;
+      x_last_bead = buf_beads[x_last];
+    } else {
+      x_first_bead = buf_beads[x_next];
+      x_last_bead = *x;
+    }
+
+    for (int v = 0; v < nbosons; v++) {
+      set_Enk(v + 1, 1, separate_atom_spring[v]);
+
+      for (int u = v - 1; u >= 0; u--) {
+        double val = get_Enk(v + 1, v - u) +
+            // Eint(u)
+            separate_atom_spring[u] - spring_energy_two_beads(x_first_bead, u, x_last_bead, u)
+            // connect u to u+1
+            + spring_energy_two_beads(x_last_bead, u, x_first_bead, u + 1)
+            // break cycle [u+1,v]
+            - spring_energy_two_beads(x_first_bead, u + 1, x_last_bead, v)
+            // close cycle from v to u
+            + spring_energy_two_beads(x_first_bead, u, x_last_bead, v);
+
+        set_Enk(v + 1, v - u + 1, val);
+      }
     }
   }
 
