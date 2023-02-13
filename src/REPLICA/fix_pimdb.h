@@ -35,7 +35,6 @@ class FixPIMDB : public FixPIMD {
   void end_of_step() override;
 
   void spring_force() override;
-  double Evaluate_Ekn(const int n, const int k);
 
  private:
   void evaluate_cycle_energies();

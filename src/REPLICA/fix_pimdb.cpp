@@ -219,66 +219,6 @@ double FixPIMDB::set_Enk(int m, int k, double val) {
 
 /* ---------------------------------------------------------------------- */
 
-//E_n^(k) is a function of k atoms (R_n-k+1,...,R_n) for a given n and k.
-double FixPIMDB::Evaluate_Ekn(const int n, const int k)
-{
-  //bead is the bead number of current replica. bead = 0,...,np-1.
-  int bead = universe->iworld;
-
-  double **x = atom->x;
-  double* _mass = atom->mass;
-  int* type = atom->type;
-  double energy_all = 0.0;
-  double energy_local = 0.0;
-
-  //xnext is a pointer to first element of buf_beads[x_next].
-  //See in FixPIMDB::comm_init() for the definition of x_next.
-  //x_next is basically (bead + 1) for bead in (0,...,np-2) and 0 for bead = np-1.
-  //buf_beads[j] is a 1-D array of length 3*nlocal x0^j,y0^j,z0^j,...,x_(nlocal-1)^j,y_(nlocal-1)^j,z_(nlocal-1)^j.
-  double* xnext = buf_beads[x_next];
-
-  //omega^2, could use fbond instead?
-  double omega_sq = omega_np*omega_np;
-
-  //E_n^(k)(R_n-k+1,...,R_n) is a function of k atoms
-  xnext += 3*(n-k);
-
-  //np is total number of beads
-  if(bead == np-1 && k > 1) xnext += 3;
-
-  spring_energy = 0.0;
-  for (int i = n-k; i < n ; ++i) {
-
-    double delx = xnext[0] - x[i][0];
-    double dely = xnext[1] - x[i][1];
-    double delz = xnext[2] - x[i][2];
-
-    domain->minimum_image(delx, dely, delz);
-
-    if (bead == np - 1 && i == n - 2) {
-
-      xnext = buf_beads[x_next];
-
-      xnext += 3*(n - k);
-    } else xnext += 3;
-
-    spring_energy += 0.5*_mass[type[i]]*omega_sq*(delx*delx + dely*dely + delz*delz);
-
-  }
-
-  energy_local = spring_energy;
-
-  MPI_Allreduce(&energy_local,&energy_all,1,MPI_DOUBLE,MPI_SUM,universe->uworld);
-
-  if(std::isnan(spring_energy) || std::isnan(energy_all)){
-    std::cout<< universe->iworld << " " << spring_energy <<" " << energy_all <<std::endl;
-    exit(0);}
-
-  return energy_all;
-
-
-}
-
 std::vector<std::vector<double>>
 FixPIMDB::Evaluate_dVBn(const std::vector<double> &V, const int n) {
 
