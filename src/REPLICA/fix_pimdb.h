@@ -39,7 +39,9 @@ class FixPIMDB : public FixPIMD {
 
  private:
   void evaluate_cycle_energies();
+  double spring_energy_two_beads(double* x1, int l1, double* x2, int l2);
   double get_Enk(int m, int k);
+  double set_Enk(int m, int k, double val);
   std::vector<double> Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum);
   void Evaluate_VBn(std::vector <double>& V, const int n);
   std::vector<std::vector<double>> Evaluate_dVBn(const std::vector <double>& V, const int n);

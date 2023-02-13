@@ -136,11 +136,42 @@ std::vector<double> FixPIMDB::Evaluate_dEkn_on_atom(const int n, const int k, co
 
 }
 
+double FixPIMDB::spring_energy_two_beads(double* x1, int l1, double* x2, int l2) {
+  l1 = l1 % np;
+  l2 = l2 % np;
+  double delx2 = x2[3 * l2 + 0] - x1[3 * l1 + 0];
+  double dely2 = x2[3 * l2 + 1] - x1[3 * l1 + 1];
+  double delz2 = x2[3 * l2 + 2] - x1[3 * l1 + 2];
+  domain->minimum_image(delx2, dely2, delz2);
+
+  double ff = fbond * atom->mass[atom->type[l1]]; // TODO: compare to l2
+  return -0.5 * ff * (delx2 * delx2 + dely2 * dely2 + delz2 * delz2);
+}
 
 /* ---------------------------------------------------------------------- */
 
 void FixPIMDB::evaluate_cycle_energies()
 {
+  double* intra_atom_spring_local;
+  double* separate_atom_spring;
+
+  memory->create(intra_atom_spring_local, nbosons, "FixPIMDB::evaluate_cycle_energies");
+  memory->create(separate_atom_spring, nbosons, "FixPIMDB::evaluate_cycle_energies");
+
+  double **x = atom->x;
+  for (int i = 0; i < nbosons; i++) {
+    intra_atom_spring_local[i] = spring_energy_two_beads(*x, i, buf_beads[x_next], i);
+  }
+
+  MPI_Allreduce(intra_atom_spring_local, separate_atom_spring, nbosons,
+                MPI_DOUBLE, MPI_SUM, universe->uworld);
+
+  memory->destroy(intra_atom_spring_local);
+
+  for (int m = 1; m < nbosons + 1; m++) {
+    set_Enk(m, 1, separate_atom_spring[m - 1]);
+  }
+
   int count = 0;
   for (int m = 1; m < nbosons + 1; m++) {
     for (int k = m; k > 0; k--) {
@@ -148,11 +179,22 @@ void FixPIMDB::evaluate_cycle_energies()
       count++;
     }
   }
+
+  memory->destroy(separate_atom_spring);
 }
+
+/* ---------------------------------------------------------------------- */
 
 double FixPIMDB::get_Enk(int m, int k) {
   int end_of_m = m * (m + 1) / 2;
   return E_kn.at(end_of_m - k);
+}
+
+/* ---------------------------------------------------------------------- */
+
+double FixPIMDB::set_Enk(int m, int k, double val) {
+  int end_of_m = m * (m + 1) / 2;
+  return E_kn.at(end_of_m - k) = val;
 }
 
 /* ---------------------------------------------------------------------- */
