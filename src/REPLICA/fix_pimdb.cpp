@@ -316,6 +316,36 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
   }
 }
 
+void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
+  const double Boltzmann = force->boltz;
+  double beta   = 1.0 / (Boltzmann * nhc_temp);
+
+  V_backwards[nbosons] = 0.0;
+
+  for (int l = nbosons - 1; l >= 0; l--) { // TODO: case of 0.0 can be taken from V forward
+    double Elongest = std::min(get_Enk(l + 1, 1) + V_backwards[l+1], get_Enk(nbosons, nbosons - l));
+
+    double sig_denom = 0.0;
+    for (int p = l; p < nbosons; p++) {
+          sig_denom += 1.0 / (p + 1) * exp(-beta *
+                                           (get_Enk(p + 1, p - l + 1) + V_backwards[p + 1]
+                                            - Elongest)
+                                           );
+    }
+
+    V_backwards[l] = Elongest - log(sig_denom) / beta;
+
+    if(std::isinf(V_backwards[l]) || std::isnan(V_backwards[l])) {
+          if (universe->iworld ==0){
+          // TODO: put backwards in the error message
+          std::cout << "sig_denom is: " << sig_denom << " Elongest is: " << Elongest
+                    << std::endl;}
+          exit(0);
+    }
+  }
+}
+
+
 /* ---------------------------------------------------------------------- */
 
 void FixPIMDB::spring_force() {
@@ -331,7 +361,14 @@ void FixPIMDB::spring_force() {
       std::vector<std::vector<double>> dV(nbosons * universe->nworlds, std::vector<double>(3, 0.0));
 
       Evaluate_VBn(V, nbosons);
+
+      double* V_backwards;
+      memory->create(V_backwards, nbosons + 1, "FixPIMDB::spring_force");
+      Evaluate_V_backwards(V_backwards);
+
       dV = Evaluate_dVBn(V, nbosons);
+
+      memory->destroy(V_backwards);
     }
 }
 
