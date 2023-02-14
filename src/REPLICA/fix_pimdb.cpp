@@ -136,7 +136,10 @@ std::vector<double> FixPIMDB::Evaluate_dEkn_on_atom(const int n, const int k, co
 
 }
 
-double FixPIMDB::spring_energy_two_beads(double* x1, int l1, double* x2, int l2) {
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDB::diff_two_beads(const double* x1, int l1, const double* x2, int l2,
+                                double diff[3]) {
   l1 = l1 % np;
   l2 = l2 % np;
   double delx2 = x2[3 * l2 + 0] - x1[3 * l1 + 0];
@@ -144,8 +147,19 @@ double FixPIMDB::spring_energy_two_beads(double* x1, int l1, double* x2, int l2)
   double delz2 = x2[3 * l2 + 2] - x1[3 * l1 + 2];
   domain->minimum_image(delx2, dely2, delz2);
 
+  diff[0] = delx2;
+  diff[1] = dely2;
+  diff[2] = delz2;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double FixPIMDB::spring_energy_two_beads(const double* x1, int l1, const double* x2, int l2) {
+  double diff[3];
+  diff_two_beads(x1, l1, x2, l2, diff);
+
   double ff = fbond * atom->mass[atom->type[l1]]; // TODO: compare to l2
-  return -0.5 * ff * (delx2 * delx2 + dely2 * dely2 + delz2 * delz2);
+  return -0.5 * ff * (diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2]);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -366,11 +380,117 @@ void FixPIMDB::spring_force() {
       memory->create(V_backwards, nbosons + 1, "FixPIMDB::spring_force");
       Evaluate_V_backwards(V_backwards);
 
-      dV = Evaluate_dVBn(V, nbosons);
+      double* connection_probabilities;
+      memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB::spring_force");
+      evaluate_connection_probabilities(V, V_backwards, connection_probabilities);
 
+
+      if (universe->me == np - 1) {
+          spring_force_last_bead(connection_probabilities);
+      } else {
+          spring_force_first_bead(connection_probabilities);
+      }
+
+      memory->destroy(connection_probabilities);
       memory->destroy(V_backwards);
     }
 }
+
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDB::evaluate_connection_probabilities(const std::vector<double>& V,
+                                                 const double* V_backwards,
+                                                 double* connection_probabilities) {
+    const double Boltzmann = force->boltz;
+    double beta   = 1.0 / (Boltzmann * nhc_temp);
+
+    for (int l = 0; l < nbosons - 1; l++) {
+      double direct_link_probability = 1.0 - (exp(-beta *
+                                                (V.at(l + 1) + V_backwards[l + 1] -
+                                                 V.at(nbosons))));
+      connection_probabilities[nbosons * l + (l + 1)] = direct_link_probability;
+    }
+    for (int u = 0; u < nbosons; u++) {
+      for (int l = u; l < nbosons; l++) {
+          double close_cycle_probability = 1.0 / (l + 1) *
+              exp(-beta * (V.at(u) + get_Enk(l + 1, l - u + 1) + V_backwards[l + 1]
+                         - V.at(nbosons)));
+          connection_probabilities[nbosons * l + u] = close_cycle_probability;
+      }
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
+{
+    double* x_first_bead = buf_beads[x_next];
+    double* x_last_bead = *atom->x;
+
+    double **f = atom->f;
+
+    for (int l = 0; l < nbosons; l++) {
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        double sum_z = 0.0;
+        for (int next_l = 0; next_l <= l + 1 && next_l < nbosons; next_l++) {
+          double diff_prev[3];
+          double diff_next[3];
+
+          diff_two_beads(x_last_bead, l, buf_beads[x_last], l, diff_prev);
+          diff_two_beads(x_last_bead, l, x_first_bead, next_l, diff_next);
+
+          double prob = connection_probabilities[nbosons * l + next_l];
+
+          sum_x += prob * (diff_prev[0] + diff_next[0]);
+          sum_y += prob * (diff_prev[1] + diff_next[1]);
+          sum_z += prob * (diff_prev[2] + diff_next[2]);
+        }
+
+        double ff = fbond * atom->mass[atom->type[l]];
+
+        f[l][0] -= sum_x * ff;
+        f[l][1] -= sum_y * ff;
+        f[l][2] -= sum_z * ff;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
+{
+    double* x_first_bead = *atom->x;
+    double* x_last_bead = buf_beads[x_last];
+
+    double **f = atom->f;
+
+    for (int l = 0; l < nbosons; l++) {
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        double sum_z = 0.0;
+        for (int prev_l = std::max(0, l - 1); prev_l < nbosons; prev_l++) {
+          double diff_prev[3];
+          double diff_next[3];
+
+          diff_two_beads(x_first_bead, l, buf_beads[x_next], l, diff_next);
+          diff_two_beads(x_first_bead, l, x_last_bead, prev_l, diff_prev);
+
+          double prob = connection_probabilities[nbosons * prev_l + l];
+
+          sum_x += prob * (diff_prev[0] + diff_next[0]);
+          sum_y += prob * (diff_prev[1] + diff_next[1]);
+          sum_z += prob * (diff_prev[2] + diff_next[2]);
+        }
+
+        double ff = fbond * atom->mass[atom->type[l]];
+
+        f[l][0] -= sum_x * ff;
+        f[l][1] -= sum_y * ff;
+        f[l][2] -= sum_z * ff;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
 
 //FOR PRINTING ENERGIES AND POTENTIALS FOR PIMD-B
 void FixPIMDB::end_of_step() {
