@@ -248,6 +248,7 @@ void FixPIMDB::spring_force() {
       memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB::spring_force");
       evaluate_connection_probabilities(V, V_backwards, connection_probabilities);
 
+      // TODO: spring_force output
 
       if (universe->me == np - 1) {
           spring_force_last_bead(connection_probabilities);
@@ -288,10 +289,13 @@ void FixPIMDB::evaluate_connection_probabilities(const std::vector<double>& V,
 
 void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
 {
-    double* x_first_bead = buf_beads[x_next];
-    double* x_last_bead = *atom->x;
+    double** x = atom->x;
+    double** f = atom->f;
 
-    double **f = atom->f;
+    double* x_first_bead = buf_beads[x_next];
+    double* x_last_bead = *x;
+
+    virial = 0.0;
 
     for (int l = 0; l < nbosons; l++) {
         double sum_x = 0.0;
@@ -313,6 +317,9 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
 
         double ff = fbond * atom->mass[atom->type[l]];
 
+        // TODO: why does this happen before updating the force?
+        virial += -0.5 * (x[l][0] * f[l][0] + x[l][1] * f[l][1] + x[l][2] * f[l][2]);
+
         f[l][0] -= sum_x * ff;
         f[l][1] -= sum_y * ff;
         f[l][2] -= sum_z * ff;
@@ -323,10 +330,11 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
 
 void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
 {
-    double* x_first_bead = *atom->x;
-    double* x_last_bead = buf_beads[x_last];
+    double** x = atom->x;
+    double** f = atom->f;
 
-    double **f = atom->f;
+    double* x_first_bead = *x;
+    double* x_last_bead = buf_beads[x_last];
 
     for (int l = 0; l < nbosons; l++) {
         double sum_x = 0.0;
@@ -347,6 +355,9 @@ void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
         }
 
         double ff = fbond * atom->mass[atom->type[l]];
+
+        // TODO: why does this happen before updating the force?
+        virial += -0.5 * (x[l][0] * f[l][0] + x[l][1] * f[l][1] + x[l][2] * f[l][2]);
 
         f[l][0] -= sum_x * ff;
         f[l][1] -= sum_y * ff;
