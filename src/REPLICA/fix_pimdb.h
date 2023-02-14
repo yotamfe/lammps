@@ -46,10 +46,8 @@ class FixPIMDB : public FixPIMD {
                                          double* connection_probabilities);
   void spring_force_last_bead(const double* connection_probabilities);
   void spring_force_first_bead(const double* connection_probabilities);
-  std::vector<double> Evaluate_dEkn_on_atom(const int n, const int k, const int atomnum);
   void Evaluate_VBn(std::vector <double>& V, const int n);
   void Evaluate_V_backwards(double* V_backwards);
-  std::vector<std::vector<double>> Evaluate_dVBn(const std::vector <double>& V, const int n);
 
   std::vector<double> E_kn;
   std::vector<double> V;
