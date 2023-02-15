@@ -101,12 +101,10 @@ void FixPIMDB::diff_two_beads(const double* x1, int l1, const double* x2, int l2
 
 /* ---------------------------------------------------------------------- */
 
-double FixPIMDB::spring_energy_two_beads(const double* x1, int l1, const double* x2, int l2) {
+double FixPIMDB::distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2) {
   double diff[3];
   diff_two_beads(x1, l1, x2, l2, diff);
-
-  double ff = fbond * atom->mass[atom->type[l1]]; // TODO: compare to l2
-  return -0.5 * ff * (diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2]);
+  return diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -115,7 +113,7 @@ void FixPIMDB::evaluate_cycle_energies()
 {
   double **x = atom->x;
   for (int i = 0; i < nbosons; i++) {
-    intra_atom_spring_local[i] = spring_energy_two_beads(*x, i, buf_beads[x_next], i);
+    intra_atom_spring_local[i] = distance_squared_two_beads(*x, i, buf_beads[x_next], i);
   }
 
   // TODO: enough to communicate to replicas 0,np-1
@@ -134,19 +132,23 @@ void FixPIMDB::evaluate_cycle_energies()
       x_last_bead = *x;
     }
 
+    double ff = fbond * atom->mass[atom->type[0]]; // TODO: ensure they're all the same
+
     for (int v = 0; v < nbosons; v++) {
-      set_Enk(v + 1, 1, separate_atom_spring[v]);
+      set_Enk(v + 1, 1,
+              -0.5 * ff * separate_atom_spring[v]);
 
       for (int u = v - 1; u >= 0; u--) {
         double val = get_Enk(v + 1, v - u) +
-            // Eint(u)
-            separate_atom_spring[u] - spring_energy_two_beads(x_first_bead, u, x_last_bead, u)
-            // connect u to u+1
-            + spring_energy_two_beads(x_last_bead, u, x_first_bead, u + 1)
-            // break cycle [u+1,v]
-            - spring_energy_two_beads(x_first_bead, u + 1, x_last_bead, v)
-            // close cycle from v to u
-            + spring_energy_two_beads(x_first_bead, u, x_last_bead, v);
+            -0.5 * ff * (
+              // Eint(u)
+              separate_atom_spring[u] - distance_squared_two_beads(x_first_bead, u, x_last_bead, u)
+              // connect u to u+1
+              + distance_squared_two_beads(x_last_bead, u, x_first_bead, u + 1)
+              // break cycle [u+1,v]
+              - distance_squared_two_beads(x_first_bead, u + 1, x_last_bead, v)
+              // close cycle from v to u
+              + distance_squared_two_beads(x_first_bead, u, x_last_bead, v));
 
         set_Enk(v + 1, v - u + 1, val);
       }

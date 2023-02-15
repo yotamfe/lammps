@@ -40,7 +40,7 @@ class FixPIMDB : public FixPIMD {
  private:
   void evaluate_cycle_energies();
   void diff_two_beads(const double* x1, int l1, const double* x2, int l2, double diff[3]);
-  double spring_energy_two_beads(const double* x1, int l1, const double* x2, int l2);
+  double distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2);
   double get_Enk(int m, int k);
   double set_Enk(int m, int k, double val);
   void evaluate_connection_probabilities(const std::vector<double>& V, const double* V_backwards,
