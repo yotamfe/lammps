@@ -181,8 +181,6 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
 
     Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
     for (int k = m; k > 0; --k) {
-          double E_kn;
-
           sig_denom += exp(-beta*(get_Enk(m,k) + V.at(m-k)-Elongest));
     }
 
@@ -202,7 +200,7 @@ void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
 
   V_backwards[nbosons] = 0.0;
 
-  for (int l = nbosons - 1; l >= 0; l--) { // TODO: case of 0.0 can be taken from V forward
+  for (int l = nbosons - 1; l > 0; l--) {
     double Elongest = std::min(get_Enk(l + 1, 1) + V_backwards[l+1], get_Enk(nbosons, nbosons - l));
 
     double sig_denom = 0.0;
@@ -222,6 +220,8 @@ void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
                     << std::endl;}
           exit(0);
     }
+
+    V_backwards[0] = V.at(nbosons);
   }
 }
 
