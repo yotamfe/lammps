@@ -52,9 +52,21 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 
   E_kn = std::vector<double>((nbosons * (nbosons + 1) / 2),0.0);
   V = std::vector<double>((nbosons + 1),0.0);
+
+  memory->create(intra_atom_spring_local, nbosons, "FixPIMDB: intra_atom_spring_local");
+  memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
+  memory->create(V_backwards, nbosons + 1, "FixPIMDB: V_backwards");
+  memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB: connection probabilities");
 }
 
 /* ---------------------------------------------------------------------- */
+
+FixPIMDB::~FixPIMDB() {
+  memory->destroy(connection_probabilities);
+  memory->destroy(V_backwards);
+  memory->destroy(separate_atom_spring);
+  memory->destroy(intra_atom_spring_local);
+}
 
 int FixPIMDB::setmask()
 {
@@ -101,12 +113,6 @@ double FixPIMDB::spring_energy_two_beads(const double* x1, int l1, const double*
 
 void FixPIMDB::evaluate_cycle_energies()
 {
-  double* intra_atom_spring_local;
-  double* separate_atom_spring;
-
-  memory->create(intra_atom_spring_local, nbosons, "FixPIMDB::evaluate_cycle_energies");
-  memory->create(separate_atom_spring, nbosons, "FixPIMDB::evaluate_cycle_energies");
-
   double **x = atom->x;
   for (int i = 0; i < nbosons; i++) {
     intra_atom_spring_local[i] = spring_energy_two_beads(*x, i, buf_beads[x_next], i);
@@ -115,8 +121,6 @@ void FixPIMDB::evaluate_cycle_energies()
   // TODO: enough to communicate to replicas 0,np-1
   MPI_Allreduce(intra_atom_spring_local, separate_atom_spring, nbosons,
                 MPI_DOUBLE, MPI_SUM, universe->uworld);
-
-  memory->destroy(intra_atom_spring_local);
 
   if (universe->me == 0 || universe->me == np - 1) {
 
@@ -148,8 +152,6 @@ void FixPIMDB::evaluate_cycle_energies()
       }
     }
   }
-
-  memory->destroy(separate_atom_spring);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -240,12 +242,7 @@ void FixPIMDB::spring_force() {
 
       Evaluate_VBn(V, nbosons);
 
-      double* V_backwards;
-      memory->create(V_backwards, nbosons + 1, "FixPIMDB::spring_force");
       Evaluate_V_backwards(V_backwards);
-
-      double* connection_probabilities;
-      memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB::spring_force");
       evaluate_connection_probabilities(V, V_backwards, connection_probabilities);
 
       // TODO: spring_force output
@@ -255,9 +252,6 @@ void FixPIMDB::spring_force() {
       } else {
           spring_force_first_bead(connection_probabilities);
       }
-
-      memory->destroy(connection_probabilities);
-      memory->destroy(V_backwards);
     }
 }
 

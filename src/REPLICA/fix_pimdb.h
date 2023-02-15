@@ -28,6 +28,7 @@ namespace LAMMPS_NS {
 class FixPIMDB : public FixPIMD {
  public:
   FixPIMDB(class LAMMPS *, int, char **);
+  ~FixPIMDB();
 
   int setmask() override;
 
@@ -49,9 +50,14 @@ class FixPIMDB : public FixPIMD {
   void Evaluate_VBn(std::vector <double>& V, const int n);
   void Evaluate_V_backwards(double* V_backwards);
 
+  int nbosons;
+
+  double* intra_atom_spring_local;
+  double* separate_atom_spring;
   std::vector<double> E_kn;
   std::vector<double> V;
-  int nbosons;
+  double* V_backwards;
+  double* connection_probabilities;
 };
 
 
