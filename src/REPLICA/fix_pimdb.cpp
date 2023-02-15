@@ -176,10 +176,9 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
   for (int m = 1; m < n+1; ++m) {
-    double sig_denom = 0.0;
-    double Elongest=0.0;
+    double Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
 
-    Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
+    double sig_denom = 0.0;
     for (int k = m; k > 0; --k) {
           sig_denom += exp(-beta*(get_Enk(m,k) + V.at(m-k)-Elongest));
     }
