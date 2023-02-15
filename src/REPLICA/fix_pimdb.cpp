@@ -302,18 +302,22 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
         double sum_y = 0.0;
         double sum_z = 0.0;
         for (int next_l = 0; next_l <= l + 1 && next_l < nbosons; next_l++) {
-          double diff_prev[3];
           double diff_next[3];
 
-          diff_two_beads(x_last_bead, l, buf_beads[x_last], l, diff_prev);
           diff_two_beads(x_last_bead, l, x_first_bead, next_l, diff_next);
 
           double prob = connection_probabilities[nbosons * l + next_l];
 
-          sum_x += prob * (diff_prev[0] + diff_next[0]);
-          sum_y += prob * (diff_prev[1] + diff_next[1]);
-          sum_z += prob * (diff_prev[2] + diff_next[2]);
+          sum_x += prob * diff_next[0];
+          sum_y += prob * diff_next[1];
+          sum_z += prob * diff_next[2];
         }
+
+        double diff_prev[3];
+        diff_two_beads(x_last_bead, l, buf_beads[x_last], l, diff_prev);
+        sum_x += diff_prev[0];
+        sum_y += diff_prev[1];
+        sum_z += diff_prev[2];
 
         double ff = fbond * atom->mass[atom->type[l]];
 
@@ -342,17 +346,21 @@ void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
         double sum_z = 0.0;
         for (int prev_l = std::max(0, l - 1); prev_l < nbosons; prev_l++) {
           double diff_prev[3];
-          double diff_next[3];
 
-          diff_two_beads(x_first_bead, l, buf_beads[x_next], l, diff_next);
           diff_two_beads(x_first_bead, l, x_last_bead, prev_l, diff_prev);
 
           double prob = connection_probabilities[nbosons * prev_l + l];
 
-          sum_x += prob * (diff_prev[0] + diff_next[0]);
-          sum_y += prob * (diff_prev[1] + diff_next[1]);
-          sum_z += prob * (diff_prev[2] + diff_next[2]);
+          sum_x += prob * diff_prev[0];
+          sum_y += prob * diff_prev[1];
+          sum_z += prob * diff_prev[2];
         }
+
+        double diff_next[3];
+        diff_two_beads(x_first_bead, l, buf_beads[x_next], l, diff_next);
+        sum_x += diff_next[0];
+        sum_y += diff_next[1];
+        sum_z += diff_next[2];
 
         double ff = fbond * atom->mass[atom->type[l]];
 
