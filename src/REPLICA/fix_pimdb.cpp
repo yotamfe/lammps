@@ -238,7 +238,6 @@ void FixPIMDB::spring_force() {
     } else {
       // exterior beads
       V.at(0) = 0.0;
-      std::vector<std::vector<double>> dV(nbosons * universe->nworlds, std::vector<double>(3, 0.0));
 
       Evaluate_VBn(V, nbosons);
 
