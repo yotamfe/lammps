@@ -334,6 +334,8 @@ void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
     double* x_first_bead = *x;
     double* x_last_bead = buf_beads[x_last];
 
+    virial = 0.0;
+
     for (int l = 0; l < nbosons; l++) {
         double sum_x = 0.0;
         double sum_y = 0.0;
