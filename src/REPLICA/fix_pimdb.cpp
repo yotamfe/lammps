@@ -315,7 +315,6 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
 
         double ff = fbond * atom->mass[atom->type[l]];
 
-        // TODO: why does this happen before updating the force?
         virial += -0.5 * (x[l][0] * f[l][0] + x[l][1] * f[l][1] + x[l][2] * f[l][2]);
 
         f[l][0] -= sum_x * ff;
