@@ -216,16 +216,16 @@ void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
     }
 
     V_backwards[l] = Elongest - log(sig_denom) / beta;
-    
+
     if (!std::isfinite(V_backwards[l])) {
           error->universe_one(
               FLERR,
               fmt::format("Invalid sig_denom {} with Elongest {} in fix pimdb potential backwards",
                           sig_denom, Elongest));
     }
-
-    V_backwards[0] = V.at(nbosons);
   }
+
+  V_backwards[0] = V.at(nbosons);
 }
 
 
