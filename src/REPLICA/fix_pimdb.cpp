@@ -177,6 +177,8 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
+  V.at(0) = 0.0;
+  
   for (int m = 1; m < n+1; ++m) {
     double Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
 
@@ -240,8 +242,6 @@ void FixPIMDB::spring_force() {
       spring_energy = 0.0;
     } else {
       // exterior beads
-      V.at(0) = 0.0;
-
       Evaluate_VBn(V, nbosons);
 
       Evaluate_V_backwards(V_backwards);
