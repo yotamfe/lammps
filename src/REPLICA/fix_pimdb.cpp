@@ -50,11 +50,10 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
 
-  E_kn = std::vector<double>((nbosons * (nbosons + 1) / 2),0.0);
-  V = std::vector<double>((nbosons + 1),0.0);
-
   memory->create(intra_atom_spring_local, nbosons, "FixPIMDB: intra_atom_spring_local");
   memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
+  memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "FixPIMDB: E_kn");
+  memory->create(V, nbosons + 1, "FixPIMDB: V");
   memory->create(V_backwards, nbosons + 1, "FixPIMDB: V_backwards");
   memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB: connection probabilities");
 }
@@ -64,6 +63,8 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 FixPIMDB::~FixPIMDB() {
   memory->destroy(connection_probabilities);
   memory->destroy(V_backwards);
+  memory->destroy(V);
+  memory->destroy(E_kn);
   memory->destroy(separate_atom_spring);
   memory->destroy(intra_atom_spring_local);
 }
@@ -160,35 +161,35 @@ void FixPIMDB::evaluate_cycle_energies()
 
 double FixPIMDB::get_Enk(int m, int k) {
   int end_of_m = m * (m + 1) / 2;
-  return E_kn.at(end_of_m - k);
+  return E_kn[end_of_m - k];
 }
 
 /* ---------------------------------------------------------------------- */
 
 double FixPIMDB::set_Enk(int m, int k, double val) {
   int end_of_m = m * (m + 1) / 2;
-  return E_kn.at(end_of_m - k) = val;
+  return E_kn[end_of_m - k] = val;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
+void FixPIMDB::Evaluate_VBn(double* V, const int n)
 {
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
-  V.at(0) = 0.0;
+  V[0] = 0.0;
 
-  for (int m = 1; m < n+1; ++m) {
-    double Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
+  for (int m = 1; m < n + 1; m++) {
+    double Elongest = std::min(get_Enk(m,1) + V[m-1], get_Enk(m,m) + V[0]);
 
     double sig_denom = 0.0;
-    for (int k = m; k > 0; --k) {
-          sig_denom += exp(-beta*(get_Enk(m,k) + V.at(m-k)-Elongest));
+    for (int k = m; k > 0; k--) {
+          sig_denom += exp(-beta * (get_Enk(m,k) + V[m-k] - Elongest));
     }
 
-    V.at(m) = Elongest-1.0/beta*log(sig_denom / (double)m);
-    if (!std::isfinite(V.at(m))) {
+    V[m] = Elongest - (1.0 / beta) * log(sig_denom / (double)m);
+    if (!std::isfinite(V[m])) {
           error->universe_one(
               FLERR,
               fmt::format("Invalid sig_denom {} with Elongest {} in fix pimdb potential",
@@ -225,7 +226,7 @@ void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
     }
   }
 
-  V_backwards[0] = V.at(nbosons);
+  V_backwards[0] = V[nbosons];
 }
 
 
@@ -256,7 +257,7 @@ void FixPIMDB::spring_force() {
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::evaluate_connection_probabilities(const std::vector<double>& V,
+void FixPIMDB::evaluate_connection_probabilities(const double* V,
                                                  const double* V_backwards,
                                                  double* connection_probabilities) {
     const double Boltzmann = force->boltz;
@@ -264,15 +265,15 @@ void FixPIMDB::evaluate_connection_probabilities(const std::vector<double>& V,
 
     for (int l = 0; l < nbosons - 1; l++) {
       double direct_link_probability = 1.0 - (exp(-beta *
-                                                (V.at(l + 1) + V_backwards[l + 1] -
-                                                 V.at(nbosons))));
+                                                (V[l + 1] + V_backwards[l + 1] -
+                                                 V[nbosons])));
       connection_probabilities[nbosons * l + (l + 1)] = direct_link_probability;
     }
     for (int u = 0; u < nbosons; u++) {
       for (int l = u; l < nbosons; l++) {
           double close_cycle_probability = 1.0 / (l + 1) *
-              exp(-beta * (V.at(u) + get_Enk(l + 1, l - u + 1) + V_backwards[l + 1]
-                         - V.at(nbosons)));
+              exp(-beta * (V[u] + get_Enk(l + 1, l - u + 1) + V_backwards[l + 1]
+                         - V[nbosons]));
           connection_probabilities[nbosons * l + u] = close_cycle_probability;
       }
     }
@@ -321,7 +322,7 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
         f[l][2] -= sum_z * ff;
     }
 
-    spring_energy = V.at(nbosons);
+    spring_energy = V[nbosons];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -383,10 +384,12 @@ void FixPIMDB::end_of_step() {
       // TODO: make sure that the file is created the first time, not appending to old results
       myfile.open ("pimdb.log", std::ios::out | std::ios::app);
 
-      for (double val: E_kn)
-        myfile << val << " ";
-      for (double val: V)
-        myfile << val << " "; // mult by 2625.499638 to go from Ha to kcal/mol
+      for (int i = 0; i < nbosons * (nbosons + 1) / 2; i++) {
+          myfile << E_kn[i] << " ";
+      }
+      for (int i = 0; i < nbosons + 1; i++) {
+          myfile << V[i] << " "; // mult by 2625.499638 to go from Ha to kcal/mol
+      }
       myfile << std::endl;
 
       myfile.close();
