@@ -173,14 +173,14 @@ double FixPIMDB::set_Enk(int m, int k, double val) {
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::Evaluate_VBn(double* V, const int n)
+void FixPIMDB::Evaluate_VBn()
 {
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
   V[0] = 0.0;
 
-  for (int m = 1; m < n + 1; m++) {
+  for (int m = 1; m < nbosons + 1; m++) {
     double Elongest = std::min(get_Enk(m,1) + V[m-1], get_Enk(m,m) + V[0]);
 
     double sig_denom = 0.0;
@@ -198,7 +198,7 @@ void FixPIMDB::Evaluate_VBn(double* V, const int n)
   }
 }
 
-void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
+void FixPIMDB::Evaluate_V_backwards() {
   const double Boltzmann = force->boltz;
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
@@ -242,24 +242,22 @@ void FixPIMDB::spring_force() {
       spring_energy = 0.0;
     } else {
       // exterior beads
-      Evaluate_VBn(V, nbosons);
+      Evaluate_VBn();
 
-      Evaluate_V_backwards(V_backwards);
-      evaluate_connection_probabilities(V, V_backwards, connection_probabilities);
+      Evaluate_V_backwards();
+      evaluate_connection_probabilities();
 
       if (universe->me == np - 1) {
-          spring_force_last_bead(connection_probabilities);
+          spring_force_last_bead();
       } else {
-          spring_force_first_bead(connection_probabilities);
+          spring_force_first_bead();
       }
     }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::evaluate_connection_probabilities(const double* V,
-                                                 const double* V_backwards,
-                                                 double* connection_probabilities) {
+void FixPIMDB::evaluate_connection_probabilities() {
     const double Boltzmann = force->boltz;
     double beta   = 1.0 / (Boltzmann * nhc_temp);
 
@@ -281,7 +279,7 @@ void FixPIMDB::evaluate_connection_probabilities(const double* V,
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
+void FixPIMDB::spring_force_last_bead()
 {
     double** x = atom->x;
     double** f = atom->f;
@@ -327,7 +325,7 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
+void FixPIMDB::spring_force_first_bead()
 {
     double** x = atom->x;
     double** f = atom->f;
