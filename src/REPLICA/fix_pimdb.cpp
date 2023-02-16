@@ -178,7 +178,7 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
   double beta   = 1.0 / (Boltzmann * nhc_temp);
 
   V.at(0) = 0.0;
-  
+
   for (int m = 1; m < n+1; ++m) {
     double Elongest = std::min((get_Enk(m,1)+V.at(m-1)), (get_Enk(m,m)+V.at(0)));
 
@@ -188,11 +188,11 @@ void FixPIMDB::Evaluate_VBn(std::vector <double>& V, const int n)
     }
 
     V.at(m) = Elongest-1.0/beta*log(sig_denom / (double)m);
-    if(std::isinf(V.at(m)) || std::isnan(V.at(m))) {
-	if (universe->iworld ==0){
-          std::cout << "sig_denom is: " << sig_denom << " Elongest is: " << Elongest
-                    << std::endl;}
-          exit(0);
+    if (!std::isfinite(V.at(m))) {
+          error->universe_one(
+              FLERR,
+              fmt::format("Invalid sig_denom {} with Elongest {} in fix pimdb potential",
+                          sig_denom, Elongest));
     }
   }
 }
@@ -216,13 +216,12 @@ void FixPIMDB::Evaluate_V_backwards(double* V_backwards) {
     }
 
     V_backwards[l] = Elongest - log(sig_denom) / beta;
-
-    if(std::isinf(V_backwards[l]) || std::isnan(V_backwards[l])) {
-          if (universe->iworld ==0){
-          // TODO: put backwards in the error message
-          std::cout << "sig_denom is: " << sig_denom << " Elongest is: " << Elongest
-                    << std::endl;}
-          exit(0);
+    
+    if (!std::isfinite(V_backwards[l])) {
+          error->universe_one(
+              FLERR,
+              fmt::format("Invalid sig_denom {} with Elongest {} in fix pimdb potential backwards",
+                          sig_denom, Elongest));
     }
 
     V_backwards[0] = V.at(nbosons);
