@@ -47,6 +47,10 @@ enum{PIMD,NMPIMD,CMD};
 
 FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 {
+  if (method == CMD) {
+    error->universe_all(FLERR, "Method cmd not supported in fix pimdb");
+  }
+
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
 
