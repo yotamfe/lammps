@@ -237,6 +237,7 @@ void FixPIMDB::spring_force() {
     if (universe->me != 0 && universe->me != np - 1) {
       // interior beads
       FixPIMD::spring_force();
+      spring_energy = 0.0;
     } else {
       // exterior beads
       V.at(0) = 0.0;
@@ -245,8 +246,6 @@ void FixPIMDB::spring_force() {
 
       Evaluate_V_backwards(V_backwards);
       evaluate_connection_probabilities(V, V_backwards, connection_probabilities);
-
-      // TODO: spring_force output
 
       if (universe->me == np - 1) {
           spring_force_last_bead(connection_probabilities);
@@ -323,6 +322,8 @@ void FixPIMDB::spring_force_last_bead(const double* connection_probabilities)
         f[l][1] -= sum_y * ff;
         f[l][2] -= sum_z * ff;
     }
+
+    spring_energy = V.at(nbosons);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -368,6 +369,8 @@ void FixPIMDB::spring_force_first_bead(const double* connection_probabilities)
         f[l][1] -= sum_y * ff;
         f[l][2] -= sum_z * ff;
     }
+
+    spring_energy = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
