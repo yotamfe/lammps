@@ -53,7 +53,7 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
 
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
-
+  
   memory->create(intra_atom_spring_local, nbosons, "FixPIMDB: intra_atom_spring_local");
   memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
   memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "FixPIMDB: E_kn");
@@ -92,8 +92,8 @@ void FixPIMDB::setup(int vflag)
 
 void FixPIMDB::diff_two_beads(const double* x1, int l1, const double* x2, int l2,
                                 double diff[3]) {
-  l1 = l1 % np;
-  l2 = l2 % np;
+  l1 = l1 % nbosons;
+  l2 = l2 % nbosons;
   double delx2 = x2[3 * l2 + 0] - x1[3 * l1 + 0];
   double dely2 = x2[3 * l2 + 1] - x1[3 * l1 + 1];
   double delz2 = x2[3 * l2 + 2] - x1[3 * l1 + 2];
