@@ -54,7 +54,7 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
   
-  memory->create(intra_atom_spring_local, nbosons, "FixPIMDB: intra_atom_spring_local");
+  memory->create(temp_nbosons_array, nbosons, "FixPIMDB: temp_nbosons_array");
   memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
   memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "FixPIMDB: E_kn");
   memory->create(V, nbosons + 1, "FixPIMDB: V");
@@ -70,7 +70,7 @@ FixPIMDB::~FixPIMDB() {
   memory->destroy(V);
   memory->destroy(E_kn);
   memory->destroy(separate_atom_spring);
-  memory->destroy(intra_atom_spring_local);
+  memory->destroy(temp_nbosons_array);
 }
 
 int FixPIMDB::setmask()
@@ -118,11 +118,11 @@ void FixPIMDB::evaluate_cycle_energies()
 {
   double **x = atom->x;
   for (int i = 0; i < nbosons; i++) {
-    intra_atom_spring_local[i] = distance_squared_two_beads(*x, i, buf_beads[x_next], i);
+    temp_nbosons_array[i] = distance_squared_two_beads(*x, i, buf_beads[x_next], i);
   }
 
   // TODO: enough to communicate to replicas 0,np-1
-  MPI_Allreduce(intra_atom_spring_local, separate_atom_spring, nbosons,
+  MPI_Allreduce(temp_nbosons_array, separate_atom_spring, nbosons,
                 MPI_DOUBLE, MPI_SUM, universe->uworld);
 
   if (universe->me == 0 || universe->me == np - 1) {
@@ -185,14 +185,21 @@ void FixPIMDB::Evaluate_VBn()
   V[0] = 0.0;
 
   for (int m = 1; m < nbosons + 1; m++) {
-    double Elongest = std::min(get_Enk(m,1) + V[m-1], get_Enk(m,m) + V[0]);
+    double Elongest = std::numeric_limits<double>::max();
+
+    for (int k = m; k > 0; k--) {
+    	double val = get_Enk(m,k) + V[m-k];
+    	Elongest = std::min(Elongest, val);
+      temp_nbosons_array[k] = val;
+    }
 
     double sig_denom = 0.0;
     for (int k = m; k > 0; k--) {
-          sig_denom += exp(-beta * (get_Enk(m,k) + V[m-k] - Elongest));
+          sig_denom += exp(-beta * (temp_nbosons_array[k] - Elongest));
     }
 
     V[m] = Elongest - (1.0 / beta) * log(sig_denom / (double)m);
+
     if (!std::isfinite(V[m])) {
           error->universe_one(
               FLERR,
@@ -209,13 +216,17 @@ void FixPIMDB::Evaluate_V_backwards() {
   V_backwards[nbosons] = 0.0;
 
   for (int l = nbosons - 1; l > 0; l--) {
-    double Elongest = std::min(get_Enk(l + 1, 1) + V_backwards[l+1],
-                               get_Enk(nbosons, nbosons - l));
+    double Elongest = std::numeric_limits<double>::max();
+    for (int p = l; p < nbosons; p++) {
+      double val = get_Enk(p + 1, p - l + 1) + V_backwards[p + 1];
+      Elongest = std::min(Elongest, val);
+      temp_nbosons_array[p] = val;
+    }
 
     double sig_denom = 0.0;
     for (int p = l; p < nbosons; p++) {
           sig_denom += 1.0 / (p + 1) * exp(-beta *
-                                           (get_Enk(p + 1, p - l + 1) + V_backwards[p + 1]
+                                           (temp_nbosons_array[p]
                                             - Elongest)
                                            );
     }

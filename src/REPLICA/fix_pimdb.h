@@ -56,7 +56,7 @@ class FixPIMDB : public FixPIMD {
   double* V_backwards;
   double* connection_probabilities;
 
-  double* intra_atom_spring_local;
+  double* temp_nbosons_array;
   double* separate_atom_spring;
 };
 
