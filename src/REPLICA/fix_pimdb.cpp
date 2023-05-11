@@ -316,6 +316,7 @@ void FixPIMDB::spring_force_last_bead()
     double unwrap[3];
     imageint *image = atom->image;
 
+    if (est_options[CENTROID_VIR]) centroid_vir = 0.0;
     if (est_options[GLOB_CENTROID_VIR]) glob_centroid_vir = 0.0;
 
     for (int l = 0; l < nbosons; l++) {
@@ -420,7 +421,8 @@ void FixPIMDB::spring_force_first_bead()
     // Prepare the images for potential unwrapping (for the centroid estimator).
     double unwrap[3];
     imageint* image = atom->image;
-
+   
+    if (est_options[CENTROID_VIR]) centroid_vir = 0.0;
     if (est_options[GLOB_CENTROID_VIR]) glob_centroid_vir = 0.0;
 
     for (int l = 0; l < nbosons; l++) {
