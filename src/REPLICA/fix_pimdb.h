@@ -13,7 +13,7 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(pimdb,FixPIMDB)
+FixStyle(pimdb, FixPIMDB)
 
 #else
 
@@ -25,40 +25,44 @@ FixStyle(pimdb,FixPIMDB)
 
 namespace LAMMPS_NS {
 
-class FixPIMDB : public FixPIMD {
- public:
-  FixPIMDB(class LAMMPS *, int, char **);
-  ~FixPIMDB();
+	class FixPIMDB : public FixPIMD {
+	public:
+		FixPIMDB(class LAMMPS*, int, char**);
+		~FixPIMDB();
 
-  int setmask() override;
+		int setmask() override;
 
-  void setup(int) override;
-  void end_of_step() override;
+		void setup(int) override;
+		void end_of_step() override;
 
-  void spring_force() override;
+		void spring_force() override;
 
- private:
-  void evaluate_cycle_energies();
-  void diff_two_beads(const double* x1, int l1, const double* x2, int l2, double diff[3]);
-  double distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2);
-  double get_Enk(int m, int k);
-  double set_Enk(int m, int k, double val);
-  void evaluate_connection_probabilities();
-  void spring_force_last_bead();
-  void spring_force_first_bead();
-  void Evaluate_VBn();
-  void Evaluate_V_backwards();
+	private:
+		void evaluate_cycle_energies();
+		void diff_two_beads(const double* x1, int l1, const double* x2, int l2, double diff[3]);
+		double distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2);
+		double get_Enk(int m, int k);
+		double set_Enk(int m, int k, double val);
+		void evaluate_connection_probabilities();
+		void spring_force_last_bead();
+		void spring_force_first_bead();
+		void Evaluate_VBn();
+		void Evaluate_V_backwards();
 
-  int nbosons;
+		int nbosons;
 
-  double* E_kn;
-  double* V;
-  double* V_backwards;
-  double* connection_probabilities;
+		double* E_kn;
+		double* V;
+		double* V_backwards;
+		double* connection_probabilities;
 
-  double* temp_nbosons_array;
-  double* separate_atom_spring;
-};
+		double* temp_nbosons_array;
+		double* separate_atom_spring;
+
+		// Bosonic primitive estimator
+		double *prim_est;
+		void prim_estimator();
+	};
 
 
 }
