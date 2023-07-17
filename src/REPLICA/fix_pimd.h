@@ -107,6 +107,8 @@ class FixPIMD : public Fix {
   void nhc_init();
   void nhc_update_v();
   void nhc_update_x();
+
+  int shuffle_indices_every; // TODO: relevant only in PIMDB
 };
 
 }    // namespace LAMMPS_NS

@@ -76,6 +76,8 @@ FixPIMD::FixPIMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   sp = 1.0;
   np = universe->nworlds;
 
+  shuffle_indices_every = -1;
+
   for (int i = 3; i < narg - 1; i += 2) {
     if (strcmp(arg[i], "method") == 0) {
       if (strcmp(arg[i + 1], "pimd") == 0)
@@ -100,6 +102,8 @@ FixPIMD::FixPIMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[i], "nhc") == 0) {
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
       if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd");
+    } else if (strcmp(arg[i], "nshuffle") == 0) {
+      shuffle_indices_every = utils::inumeric(FLERR, arg[i + 1], false, lmp);
     } else
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd", arg[i]));
   }

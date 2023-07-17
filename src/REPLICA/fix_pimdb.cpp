@@ -54,12 +54,17 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
   
+  memory->create(multiplex_atom_indices, nbosons, "FixPIMDB::multiplex_atom_indices");
   memory->create(temp_nbosons_array, nbosons, "FixPIMDB: temp_nbosons_array");
   memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
   memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "FixPIMDB: E_kn");
   memory->create(V, nbosons + 1, "FixPIMDB: V");
   memory->create(V_backwards, nbosons + 1, "FixPIMDB: V_backwards");
   memory->create(connection_probabilities, nbosons * nbosons, "FixPIMDB: connection probabilities");
+
+  for(int i = 0; i < nbosons; i++) {
+    multiplex_atom_indices[i] = i;
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -71,6 +76,7 @@ FixPIMDB::~FixPIMDB() {
   memory->destroy(E_kn);
   memory->destroy(separate_atom_spring);
   memory->destroy(temp_nbosons_array);
+  memory->destroy(multiplex_atom_indices);
 }
 
 int FixPIMDB::setmask()
@@ -92,8 +98,8 @@ void FixPIMDB::setup(int vflag)
 
 void FixPIMDB::diff_two_beads(const double* x1, int l1, const double* x2, int l2,
                                 double diff[3]) {
-  l1 = l1 % nbosons;
-  l2 = l2 % nbosons;
+  l1 = multiplex_atom_indices[l1 % nbosons];
+  l2 = multiplex_atom_indices[l2 % nbosons];
   double delx2 = x2[3 * l2 + 0] - x1[3 * l1 + 0];
   double dely2 = x2[3 * l2 + 1] - x1[3 * l1 + 1];
   double delz2 = x2[3 * l2 + 2] - x1[3 * l1 + 2];
@@ -244,10 +250,20 @@ void FixPIMDB::Evaluate_V_backwards() {
   V_backwards[0] = V[nbosons];
 }
 
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDB::possibly_shuffle_atoms_indices() {
+  if (shuffle_indices_every > 0 && update->ntimestep % shuffle_indices_every == 0) { 
+    std::random_shuffle(&multiplex_atom_indices[0], &multiplex_atom_indices[atom->nlocal]);
+  }
+}
+
 
 /* ---------------------------------------------------------------------- */
 
 void FixPIMDB::spring_force() {
+
+    possibly_shuffle_atoms_indices();
 
     evaluate_cycle_energies();
 

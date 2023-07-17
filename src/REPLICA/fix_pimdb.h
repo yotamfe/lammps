@@ -38,6 +38,7 @@ class FixPIMDB : public FixPIMD {
   void spring_force() override;
 
  private:
+  void possibly_shuffle_atoms_indices();
   void evaluate_cycle_energies();
   void diff_two_beads(const double* x1, int l1, const double* x2, int l2, double diff[3]);
   double distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2);
@@ -50,6 +51,8 @@ class FixPIMDB : public FixPIMD {
   void Evaluate_V_backwards();
 
   int nbosons;
+
+  int* multiplex_atom_indices;
 
   double* E_kn;
   double* V;
