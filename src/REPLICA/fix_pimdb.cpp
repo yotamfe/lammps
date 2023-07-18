@@ -344,11 +344,13 @@ void FixPIMDB::spring_force_last_bead()
 
         double ff = fbond * atom->mass[atom->type[l]];
 
-        virial += -0.5 * (x[l][0] * f[l][0] + x[l][1] * f[l][1] + x[l][2] * f[l][2]);
+        int l_actual = multiplex_atom_indices[l];
 
-        f[l][0] -= sum_x * ff;
-        f[l][1] -= sum_y * ff;
-        f[l][2] -= sum_z * ff;
+        virial += -0.5 * (x[l_actual][0] * f[l_actual][0] + x[l_actual][1] * f[l_actual][1] + x[l_actual][2] * f[l_actual][2]);
+
+        f[l_actual][0] -= sum_x * ff;
+        f[l_actual][1] -= sum_y * ff;
+        f[l_actual][2] -= sum_z * ff;
     }
 
     spring_energy = V[nbosons];
@@ -391,11 +393,13 @@ void FixPIMDB::spring_force_first_bead()
         double ff = fbond * atom->mass[atom->type[l]];
 
         // TODO: why does this happen before updating the force?
-        virial += -0.5 * (x[l][0] * f[l][0] + x[l][1] * f[l][1] + x[l][2] * f[l][2]);
+        int l_actual = multiplex_atom_indices[l];
 
-        f[l][0] -= sum_x * ff;
-        f[l][1] -= sum_y * ff;
-        f[l][2] -= sum_z * ff;
+        virial += -0.5 * (x[l_actual][0] * f[l_actual][0] + x[l_actual][1] * f[l_actual][1] + x[l_actual][2] * f[l_actual][2]);
+
+        f[l_actual][0] -= sum_x * ff;
+        f[l_actual][1] -= sum_y * ff;
+        f[l_actual][2] -= sum_z * ff;
     }
 
     spring_energy = 0.0;
