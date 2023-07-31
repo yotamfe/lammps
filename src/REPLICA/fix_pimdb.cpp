@@ -254,7 +254,13 @@ void FixPIMDB::Evaluate_V_backwards() {
 
 void FixPIMDB::possibly_shuffle_atoms_indices() {
   if (shuffle_indices_every > 0 && update->ntimestep % shuffle_indices_every == 0) { 
-    std::random_shuffle(&multiplex_atom_indices[0], &multiplex_atom_indices[atom->nlocal]);
+    static const int ROOT = 0;
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == ROOT) {
+       std::random_shuffle(&multiplex_atom_indices[0], &multiplex_atom_indices[atom->nlocal]);
+    }
+    MPI_Bcast(multiplex_atom_indices, nbosons, MPI_INT, ROOT, universe->uworld);
   }
 }
 
