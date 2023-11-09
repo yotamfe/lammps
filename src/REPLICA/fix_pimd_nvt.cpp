@@ -72,7 +72,9 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   nhc_eta_dotdot = nullptr;
   nhc_eta_mass = nullptr;
 
-  spring_energy = t_sys = virial = 0.0;
+  mapflag = 1;
+
+  spring_energy = t_sys = virial = primitive = centroid_vir = glob_centroid_vir = 0.0;
 
   method = PIMD;
   fmass = 1.0;
@@ -80,6 +82,9 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   nhc_nchain = 2;
   sp = 1.0;
   np = universe->nworlds;
+
+  // Set default values for options
+  for (int i = 0; i < MAX_EST_OPTIONS; i++) { est_options[i] = false; }
 
   for (int i = 3; i < narg - 1; i += 2) {
     if (strcmp(arg[i], "method") == 0) {
@@ -105,7 +110,29 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[i], "nhc") == 0) {
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
       if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd/nvt");
-    } else
+    } else if (strcmp(arg[i], "est") == 0) {
+        char *est_args[MAX_EST_OPTIONS];
+        int n_est_arg = parse_est_args(arg[i + 1], est_args);
+
+        // If no argument is provided, either calculate the virial
+        // or don't calculate anything (currently we choose the latter).
+
+        // if (n_est_arg < 1) { est_options[VIRIAL] = true; }
+
+        for (int j = 0; j < n_est_arg; j++) {
+          if (strcmp(est_args[j], "prim") == 0) {
+            est_options[PRIMITIVE] = true;
+          } else if (strcmp(est_args[j], "vir") == 0) {
+            est_options[VIRIAL] = true;
+          } else if (strcmp(est_args[j], "cv") == 0) {
+            est_options[CENTROID_VIR] = true;
+          } else if (strcmp(est_args[j], "gcv") == 0) {
+            est_options[GLOB_CENTROID_VIR] = true;
+          } else {
+            error->universe_all(FLERR, fmt::format("Unknown estimator type {} for fix pimd/nvt", est_args[j]));
+          }
+        }
+      } else
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd/nvt", arg[i]));
   }
 
@@ -127,7 +154,29 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 
   global_freq = 1;
   vector_flag = 1;
-  size_vector = 3;
+  
+  // Count the number of requested energy estimators.
+  num_est_options = 0;
+  for (int i = 0; i < MAX_EST_OPTIONS; i++) {
+    if (est_options[i]) num_est_options++;
+  }
+
+  // Initialize a list of chosen estimators.
+  memory->create(est_list, num_est_options, "FixPIMDNVT: est_list");
+
+  // Populate the list of chosen estimators.
+  int est_idx = 0;
+  for (int i = 0; i < MAX_EST_OPTIONS; i++) {
+    if (est_options[i]) {
+      est_list[est_idx] = i;
+      est_idx++;
+    }
+  }
+
+  // Number of options for the "compute_vector" method.
+  // Because we always output "spring_energy" and "t_sys", the offset is 2.
+  size_vector = 2 + num_est_options;    // old value = 3
+
   extvector = 1;
   comm_forward = 3;
 
@@ -139,12 +188,53 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   // some initilizations
 
   nhc_ready = false;
+
+  // Allocate memory for centroid vectors
+  if (est_options[CENTROID_VIR]) {
+    // "centroids" is a 1D array which holds the coordinates of N centroids.
+    // jth component of the ith centroid is given by centroids[3*i+j] where i=0,1,..,N-1 and j=0,1,2.
+    memory->create(centroids, 3 * atom->nlocal, "FixPIMDNVT: centroids");
+
+    // "one_centroid" is a 1D array which holds the coordinates of all the particles at
+    // the current imaginary timeslice, i.e.,
+    // one_centroid[3*i+j] = the jth component of the current bead of the ith particle.
+    memory->create(one_centroid, 3 * atom->nlocal, "FixPIMDNVT: one_centroid");
+  }
+
+  if (est_options[GLOB_CENTROID_VIR]) {
+    // "glob_centroid" is a three-vector corresponding to the centroid of the N*P beads.
+    glob_centroid = new double[3];
+
+    // "one_glob_centroid" is the contribution of the current timeslice to "glob_centroid".
+    one_glob_centroid = new double[3];
+
+    glob_centroid[0] = 0.0;
+    glob_centroid[1] = 0.0;
+    glob_centroid[2] = 0.0;
+  }
+
+  if (universe->nworlds == 1)
+    mapflag = 0;
+  else
+    mapflag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
 FixPIMDNVT::~FixPIMDNVT()
 {
+  if (est_options[GLOB_CENTROID_VIR]) {
+    delete[] one_glob_centroid;
+    delete[] glob_centroid;
+  }
+
+  if (est_options[CENTROID_VIR]) {
+    memory->destroy(one_centroid);
+    memory->destroy(centroids);
+  }
+
+  memory->destroy(est_list);
+
   delete[] mass;
   atom->delete_callback(id, Atom::GROW);
   atom->delete_callback(id, Atom::RESTART);
@@ -171,6 +261,46 @@ FixPIMDNVT::~FixPIMDNVT()
   memory->destroy(nhc_eta_dot);
   memory->destroy(nhc_eta_dotdot);
   memory->destroy(nhc_eta_mass);
+}
+
+/* ---------------------------------------------------------------------- */
+
+char *FixPIMDNVT::find_next_comma(char *str)
+{
+  int level = 0;
+  for (char *p = str; *p; ++p) {
+    if ('(' == *p)
+      level++;
+    else if (')' == *p)
+      level--;
+    else if (',' == *p && !level)
+      return p;
+  }
+  return NULL;
+}
+
+int FixPIMDNVT::parse_est_args(char *str, char **args)
+{
+  int n;
+  char *ptrnext;
+
+  int narg = 0;
+  char *ptr = str;
+
+  while (ptr && narg < MAX_EST_OPTIONS) {
+    // Whitespace-sensitive implementation
+    ptrnext = find_next_comma(ptr);
+    if (ptrnext) *ptrnext = '\0';
+    n = strlen(ptr) + 1;
+    args[narg] = new char[n];
+    strcpy(args[narg], ptr);
+    narg++;
+    ptr = ptrnext;
+    if (ptr) ptr++;
+  }
+
+  if (ptr) error->all(FLERR, "Requested too many estimators.");
+  return narg;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -277,6 +407,12 @@ void FixPIMDNVT::post_force(int /*flag*/)
     for (int j = 0; j < 3; j++) atom->f[i][j] /= np;
 
   comm_exec(atom->x);
+
+  if (est_options[CENTROID_VIR]) evaluate_centroid();  // Standard centroid
+
+  // Propagates to PIMD-B as well
+  if (est_options[GLOB_CENTROID_VIR]) evaluate_glob_centroid();  // Global centroid
+
   spring_force();
 
   if (method == CMD || method == NMPIMD) {
@@ -546,7 +682,15 @@ void FixPIMDNVT::spring_force()
   double *xlast = buf_beads[x_last];
   double *xnext = buf_beads[x_next];
 
-  virial = 0.0;
+  // Prepare the images for potential unwrapping (for centroid estimators).
+  double unwrap[3];
+  imageint *image = atom->image;
+
+  if (est_options[VIRIAL]) virial = 0.0;
+
+  if (est_options[CENTROID_VIR]) centroid_vir = 0.0;
+
+  if (est_options[GLOB_CENTROID_VIR]) glob_centroid_vir = 0.0;
 
   for (int i = 0; i < nlocal; i++) {
     double delx1 = xlast[0] - x[i][0];
@@ -567,7 +711,40 @@ void FixPIMDNVT::spring_force()
     double dy = dely1 + dely2;
     double dz = delz1 + delz2;
 
-    virial += -0.5 * (x[i][0] * f[i][0] + x[i][1] * f[i][1] + x[i][2] * f[i][2]);
+    // Energy estimators
+    if (est_options[CENTROID_VIR] || est_options[GLOB_CENTROID_VIR]) {
+      domain->unmap(x[i], image[i], unwrap);
+
+      if (est_options[CENTROID_VIR]) {
+        // Standard centroid-virial kinetic energy estimator calculation (without the constant and the potential energy terms).
+        // Useful for translationally-invariant (periodic) distinguishable systems.
+
+        double diff_x = unwrap[0] - centroids[3 * i];
+        double diff_y = unwrap[1] - centroids[3 * i + 1];
+        double diff_z = unwrap[2] - centroids[3 * i + 2];
+
+        // domain->minimum_image(diff_x, diff_y, diff_z);  // Probably not needed if we use unmap?
+
+        centroid_vir += -0.5 * (diff_x * f[i][0] + diff_y * f[i][1] + diff_z * f[i][2]);
+      }
+
+      if (est_options[GLOB_CENTROID_VIR]) {
+        // Global centroid-virial kinetic energy estimator calculation (without the constant and the potential energy terms).
+
+        double diff_x = unwrap[0] - glob_centroid[0];
+        double diff_y = unwrap[1] - glob_centroid[1];
+        double diff_z = unwrap[2] - glob_centroid[2];
+
+        // domain->minimum_image(diff_x, diff_y, diff_z);  // Probably not needed if we use unmap?
+
+        glob_centroid_vir += -0.5 * (diff_x * f[i][0] + diff_y * f[i][1] + diff_z * f[i][2]);
+      }
+    }
+
+    if (est_options[VIRIAL]) {
+      // Virial kinetic energy estimator.
+      virial += -0.5 * (x[i][0] * f[i][0] + x[i][1] * f[i][1] + x[i][2] * f[i][2]);
+    }
 
     f[i][0] -= (dx) *ff;
     f[i][1] -= (dy) *ff;
@@ -575,6 +752,8 @@ void FixPIMDNVT::spring_force()
 
     spring_energy += -0.5 * ff * (delx2 * delx2 + dely2 * dely2 + delz2 * delz2);
   }
+
+  if (est_options[PRIMITIVE]) primitive = 0.5 * domain->dimension * nlocal / beta - spring_energy;
 }
 
 /* ----------------------------------------------------------------------
@@ -883,10 +1062,78 @@ int FixPIMDNVT::size_restart(int /*nlocal*/)
 
 /* ---------------------------------------------------------------------- */
 
+void FixPIMDNVT::evaluate_centroid()
+{
+  double **x = atom->x;
+  int natoms = atom->nlocal;
+  imageint *image = atom->image;
+
+  double unwrap[3];
+
+  for (int l = 0; l < natoms; l++) {
+    domain->unmap(x[l], image[l], unwrap);
+
+    one_centroid[3 * l + 0] = unwrap[0] * inverse_np;
+    one_centroid[3 * l + 1] = unwrap[1] * inverse_np;
+    one_centroid[3 * l + 2] = unwrap[2] * inverse_np;
+  }
+
+  MPI_Allreduce(one_centroid, centroids, 3 * natoms, MPI_DOUBLE, MPI_SUM, universe->uworld);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixPIMDNVT::evaluate_glob_centroid()
+{
+  double **x = atom->x;
+  int natoms = atom->nlocal;
+  imageint *image = atom->image;
+
+  one_glob_centroid[0] = 0.0;
+  one_glob_centroid[1] = 0.0;
+  one_glob_centroid[2] = 0.0;
+
+  double unwrap[3];
+
+  for (int l = 0; l < natoms; l++) {
+    domain->unmap(x[l], image[l], unwrap);
+
+    one_glob_centroid[0] += unwrap[0];
+    one_glob_centroid[1] += unwrap[1];
+    one_glob_centroid[2] += unwrap[2];
+  }
+
+  MPI_Allreduce(one_glob_centroid, glob_centroid, 3, MPI_DOUBLE, MPI_SUM, universe->uworld);
+
+  // TODO: Use "inverse_np/natoms"?
+  glob_centroid[0] = glob_centroid[0] / (natoms * np);
+  glob_centroid[1] = glob_centroid[1] / (natoms * np);
+  glob_centroid[2] = glob_centroid[2] / (natoms * np);
+}
+
+/* ---------------------------------------------------------------------- */
+
+// Returns the instantaneous estimator value based on the provided type.
+double FixPIMDNVT::est_var(const int est)
+{
+  if (est == PRIMITIVE) { return primitive; }
+  if (est == VIRIAL) { return virial; }
+  if (est == CENTROID_VIR) { return centroid_vir; }
+  if (est == GLOB_CENTROID_VIR) { return glob_centroid_vir; }
+
+  return 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
 double FixPIMDNVT::compute_vector(int n)
 {
-  if (n == 0) return spring_energy;
-  if (n == 1) return t_sys;
-  if (n == 2) return virial;
+  if (n == 0) { return spring_energy; }
+  if (n == 1) { return t_sys; }
+
+  for (int i = 2; i < num_est_options + 2; i++) {
+    if (n == i) return est_var(est_list[i - 2]);
+  }
+
   return 0.0;
 }

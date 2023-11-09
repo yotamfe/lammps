@@ -58,12 +58,14 @@ class FixPIMDNVT : public Fix {
   int np;
   double inverse_np;
 
+  int mapflag;    // should be 1 if number of beads > 1
+
   /* ring-polymer model */
 
-  double omega_np, fbond, spring_energy, sp, virial;
+  double omega_np, fbond, spring_energy, sp;
   int x_last, x_next;
 
-  void spring_force();
+  virtual void spring_force();
 
   /* fictitious mass */
 
@@ -110,6 +112,29 @@ class FixPIMDNVT : public Fix {
   void nhc_init();
   void nhc_update_v();
   void nhc_update_x();
+
+  // Energy estimators
+  enum EstType { PRIMITIVE, VIRIAL, CENTROID_VIR, GLOB_CENTROID_VIR };
+  bool est_options[MAX_EST_OPTIONS];
+  int *est_list;
+
+  double primitive, virial, centroid_vir, glob_centroid_vir;
+
+  // Standard centroid virial estimator
+  void evaluate_centroid();
+  double *centroids;
+  double *one_centroid;
+
+  // Global centroid virial estimator
+  void evaluate_glob_centroid();
+  double *glob_centroid;
+  double *one_glob_centroid;
+
+ private:
+  double est_var(const int);
+  int parse_est_args(char *, char **);
+  char *find_next_comma(char *);
+  int num_est_options, est_counter;
 };
 
 }    // namespace LAMMPS_NS
