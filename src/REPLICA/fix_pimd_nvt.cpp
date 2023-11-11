@@ -671,6 +671,9 @@ void FixPIMDNVT::nmpimd_transform(double **src, double **des, double *vector)
 
 void FixPIMDNVT::spring_force()
 {
+  const double Boltzmann = force->boltz;
+  double beta = 1.0 / (Boltzmann * nhc_temp);
+
   spring_energy = 0.0;
 
   double **x = atom->x;

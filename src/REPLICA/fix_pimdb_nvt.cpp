@@ -80,7 +80,7 @@ FixPIMDBNVT::~FixPIMDBNVT()
 
 int FixPIMDBNVT::setmask()
 {
-    int mask = FixPIMD::setmask();
+    int mask = FixPIMDNVT::setmask();
     mask |= END_OF_STEP;
     return mask;
 }
@@ -89,7 +89,7 @@ int FixPIMDBNVT::setmask()
 
 void FixPIMDBNVT::setup(int vflag)
 {
-    FixPIMD::setup(vflag);
+    FixPIMDNVT::setup(vflag);
     end_of_step();
 }
 
@@ -264,7 +264,7 @@ void FixPIMDBNVT::spring_force()
 
     if (universe->me != 0 && universe->me != np - 1) {
         // interior beads
-        FixPIMD::spring_force();
+        FixPIMDNVT::spring_force();
         spring_energy = 0.0;
         if (est_options[PRIMITIVE]) primitive = 0.0;
     }

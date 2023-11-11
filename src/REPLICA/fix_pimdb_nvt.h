@@ -21,7 +21,7 @@ FixStyle(pimdb/nvt, FixPIMDBNVT)
 #ifndef FIX_PIMDB_NVT_H
 #define FIX_PIMDB_NVT_H
 
-#include "fix_pimdb_nvt.h"
+#include "fix_pimd_nvt.h"
 #include <vector>
 
 namespace LAMMPS_NS {

@@ -23,6 +23,8 @@ FixStyle(pimd/nvt,FixPIMDNVT);
 
 #include "fix.h"
 
+#define MAX_EST_OPTIONS 4
+
 namespace LAMMPS_NS {
 
 class FixPIMDNVT : public Fix {
