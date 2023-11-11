@@ -27,7 +27,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
-#include "fix_pimdb.h"
+#include "fix_pimdb_nvt.h"
 #include "universe.h"
 #include "comm.h"
 #include "force.h"
