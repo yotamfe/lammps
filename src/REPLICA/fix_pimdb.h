@@ -21,7 +21,7 @@ FixStyle(pimdb,FixPIMDB)
 #define FIX_PIMDB_H
 
 #include "fix_pimd.h"
-#include <vector>
+#include "bosonic_exchange.h"
 
 namespace LAMMPS_NS {
 
@@ -50,14 +50,9 @@ class FixPIMDB : public FixPIMD {
   void Evaluate_V_backwards();
 
   int nbosons;
+  BosonicExchange bosonic_exchange;
 
-  double* E_kn;
-  double* V;
-  double* V_backwards;
-  double* connection_probabilities;
 
-  double* temp_nbosons_array;
-  double* separate_atom_spring;
 };
 
 
