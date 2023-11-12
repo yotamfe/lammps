@@ -55,7 +55,7 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) :
   }
 
   nbosons    = atom->nlocal;
-  nevery     = 1; // TODO: make configurable (thermo_style?)
+  nevery     = 100; // TODO: make configurable (thermo_style?)
 }
 
 /* ---------------------------------------------------------------------- */
@@ -90,7 +90,7 @@ void FixPIMDB::spring_force() {
         spring_energy = 0.0;
     } else {
         // exterior beads
-        bosonic_exchange.spring_force(atom->f);
+        virial = bosonic_exchange.spring_force(atom->f);
         if (universe->me == np - 1) {
             spring_energy = bosonic_exchange.get_potential();
         } else {
@@ -113,7 +113,7 @@ void FixPIMDB::end_of_step() {
       myfile.open ("pimdb.log", std::ios::out | std::ios::app);
 
       for (int i = 0; i < nbosons * (nbosons + 1) / 2; i++) {
-          myfile << bosonic_exchange.get_E_kn(i) << " ";
+          myfile << bosonic_exchange.get_E_kn_serial_order(i) << " ";
       }
       for (int i = 0; i < nbosons + 1; i++) {
           myfile << bosonic_exchange.get_Vn(i) << " "; // mult by 2625.499638 to go from Ha to kcal/mol

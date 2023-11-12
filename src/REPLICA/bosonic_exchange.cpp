@@ -207,23 +207,24 @@ double BosonicExchange::get_Vn(int n) const {
 
 /* ---------------------------------------------------------------------- */
 
-double BosonicExchange::get_E_kn(int i) const {
+double BosonicExchange::get_E_kn_serial_order(int i) const {
     return E_kn[i];
 }
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force(double** f) {
+double BosonicExchange::spring_force(double** f) {
     if (bead_num != 0 && bead_num != np - 1) {
         // interior beads
 //        FixPIMD::spring_force();
         // TODO: complete
+        return 0.0;
     } else {
         // exterior beads
         if (bead_num == np - 1) {
-            spring_force_last_bead(f);
+            return spring_force_last_bead(f);
         } else {
-            spring_force_first_bead(f);
+            return spring_force_first_bead(f);
         }
     }
 }
@@ -249,9 +250,9 @@ void BosonicExchange::evaluate_connection_probabilities() {
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force_last_bead(double** f)
+double BosonicExchange::spring_force_last_bead(double** f)
 {
-    virial = 0.0;
+    double virial = 0.0;
 
     const double* x_first_bead = x_next;
     const double* x_last_bead = x;
@@ -284,13 +285,15 @@ void BosonicExchange::spring_force_last_bead(double** f)
         f[l][1] -= sum_y * ff;
         f[l][2] -= sum_z * ff;
     }
+
+    return virial;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force_first_bead(double** f)
+double BosonicExchange::spring_force_first_bead(double** f)
 {
-    virial = 0.0;
+    double virial = 0.0;
 
     const double* x_first_bead = x;
     const double* x_last_bead = x_prev;
@@ -323,4 +326,8 @@ void BosonicExchange::spring_force_first_bead(double** f)
         f[l][1] -= sum_y * ff;
         f[l][2] -= sum_z * ff;
     }
+
+    return virial;
 }
+
+/* ---------------------------------------------------------------------- */
