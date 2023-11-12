@@ -7,9 +7,9 @@
 
 using namespace LAMMPS_NS;
 
-BosonicExchange::BosonicExchange(LAMMPS *lmp, int nbosons, int np, int bead_num, double beta, double ff) :
+BosonicExchange::BosonicExchange(LAMMPS *lmp, int nbosons, int np, int bead_num, double beta) :
         Pointers(lmp),
-        nbosons(nbosons), np(np), bead_num(bead_num), beta(beta), ff(ff) {
+        nbosons(nbosons), np(np), bead_num(bead_num), beta(beta) {
     memory->create(temp_nbosons_array, nbosons, "BosonicExchange: temp_nbosons_array");
     memory->create(separate_atom_spring, nbosons, "BosonicExchange: separate_atom_spring");
     memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "BosonicExchange: E_kn");
@@ -18,10 +18,11 @@ BosonicExchange::BosonicExchange(LAMMPS *lmp, int nbosons, int np, int bead_num,
     memory->create(connection_probabilities, nbosons * nbosons, "BosonicExchange: connection probabilities");
 }
 
-void BosonicExchange::init(const double* x, const double* x_prev, const double* x_next) {
+void BosonicExchange::init(const double* x, const double* x_prev, const double* x_next, double ff) {
     this->x = x;
     this->x_prev = x_prev;
     this->x_next = x_next;
+    this->ff = ff;
 
     evaluate_cycle_energies();
     if (bead_num == 0 || bead_num == np - 1) {
@@ -123,9 +124,9 @@ double BosonicExchange::get_Enk(int m, int k) {
 
 /* ---------------------------------------------------------------------- */
 
-double BosonicExchange::set_Enk(int m, int k, double val) {
+void BosonicExchange::set_Enk(int m, int k, double val) {
     int end_of_m = m * (m + 1) / 2;
-    return E_kn[end_of_m - k] = val;
+    E_kn[end_of_m - k] = val;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -212,7 +213,7 @@ double BosonicExchange::get_E_kn(int i) const {
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force(double* f) {
+void BosonicExchange::spring_force(double** f) {
     if (bead_num != 0 && bead_num != np - 1) {
         // interior beads
 //        FixPIMD::spring_force();
@@ -248,7 +249,7 @@ void BosonicExchange::evaluate_connection_probabilities() {
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force_last_bead(double* f)
+void BosonicExchange::spring_force_last_bead(double** f)
 {
     virial = 0.0;
 
@@ -277,17 +278,17 @@ void BosonicExchange::spring_force_last_bead(double* f)
         sum_y += diff_prev[1];
         sum_z += diff_prev[2];
 
-        virial += -0.5 * (x[3 * l + 0] * f[3 * l + 0] + x[3 * l + 1] * f[3 * l + 1] + x[3 * l + 2] * f[3 * l + 2]);
+        virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
 
-        f[3 * l + 0] -= sum_x * ff;
-        f[3 * l + 1] -= sum_y * ff;
-        f[3 * l + 2] -= sum_z * ff;
+        f[l][0] -= sum_x * ff;
+        f[l][1] -= sum_y * ff;
+        f[l][2] -= sum_z * ff;
     }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void BosonicExchange::spring_force_first_bead(double* f)
+void BosonicExchange::spring_force_first_bead(double** f)
 {
     virial = 0.0;
 
@@ -316,10 +317,10 @@ void BosonicExchange::spring_force_first_bead(double* f)
         sum_y += diff_next[1];
         sum_z += diff_next[2];
 
-        virial += -0.5 * (x[3 * l + 0] * f[3 * l + 0] + x[3 * l + 1] * f[3 * l + 1] + x[3 * l + 2] * f[3 * l + 2]);
+        virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
 
-        f[3 * l + 0] -= sum_x * ff;
-        f[3 * l + 1] -= sum_y * ff;
-        f[3 * l + 2] -= sum_z * ff;
+        f[l][0] -= sum_x * ff;
+        f[l][1] -= sum_y * ff;
+        f[l][2] -= sum_z * ff;
     }
 }

@@ -18,17 +18,17 @@
 
 namespace LAMMPS_NS {
 
-    class BosonicExchange : public Pointers {
+    class BosonicExchange : protected Pointers {
     public:
-        BosonicExchange(class LAMMPS *, int nbosons, int np, int bead_num, double beta, double ff);
+        BosonicExchange(class LAMMPS *, int nbosons, int np, int bead_num, double beta);
         ~BosonicExchange();
 
-        void init(const double* x, const double* x_prev, const double* x_next);
+        void init(const double* x, const double* x_prev, const double* x_next, double ff);
 
         double get_potential() const;
         double get_Vn(int n) const;
         double get_E_kn(int i) const;
-        void spring_force(double* f);
+        void spring_force(double** f);
 
         static const bool apply_minimum_image = false;
 
@@ -37,10 +37,10 @@ namespace LAMMPS_NS {
         void diff_two_beads(const double* x1, int l1, const double* x2, int l2, double diff[3]);
         double distance_squared_two_beads(const double* x1, int l1, const double* x2, int l2);
         double get_Enk(int m, int k);
-        double set_Enk(int m, int k, double val);
+        void set_Enk(int m, int k, double val);
         void evaluate_connection_probabilities();
-        void spring_force_last_bead(double* f);
-        void spring_force_first_bead(double* f);
+        void spring_force_last_bead(double** f);
+        void spring_force_first_bead(double** f);
         void Evaluate_VBn();
         void Evaluate_V_backwards();
 

@@ -48,15 +48,14 @@ enum{PIMD,NMPIMD,CMD};
 FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) :
     FixPIMD(lmp, narg, arg),
     bosonic_exchange(lmp, atom->nlocal, np, universe->me,
-                     1.0 / (force->boltz * nhc_temp),
-                     fbond * atom->mass[atom->type[0]])
+                     1.0 / (force->boltz * nhc_temp))
 {
   if (method == CMD) {
     error->universe_all(FLERR, "Method cmd not supported in fix pimdb");
   }
 
   nbosons    = atom->nlocal;
-  nevery     = 100; // TODO: make configurable (thermo_style?)
+  nevery     = 1; // TODO: make configurable (thermo_style?)
 }
 
 /* ---------------------------------------------------------------------- */
@@ -82,7 +81,8 @@ void FixPIMDB::setup(int vflag)
 /* ---------------------------------------------------------------------- */
 
 void FixPIMDB::spring_force() {
-    bosonic_exchange.init(*(atom->x), buf_beads[x_last], buf_beads[x_next]);
+    double ff = fbond * atom->mass[atom->type[0]]; // TODO: ensure that all masses are the same
+    bosonic_exchange.init(*(atom->x), buf_beads[x_last], buf_beads[x_next], ff);
 
     if (universe->me != 0 && universe->me != np - 1) {
         // interior beads
@@ -90,7 +90,7 @@ void FixPIMDB::spring_force() {
         spring_energy = 0.0;
     } else {
         // exterior beads
-        bosonic_exchange.spring_force(*(atom->f));
+        bosonic_exchange.spring_force(atom->f);
         if (universe->me == np - 1) {
             spring_energy = bosonic_exchange.get_potential();
         } else {
