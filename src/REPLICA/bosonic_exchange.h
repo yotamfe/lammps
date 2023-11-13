@@ -23,7 +23,8 @@ namespace LAMMPS_NS {
         BosonicExchange(class LAMMPS *, int nbosons, int np, int bead_num, double beta);
         ~BosonicExchange();
 
-        void init(const double* x, const double* x_prev, const double* x_next, double ff);
+        void prepare_with_coordinates(const double* x, const double* x_prev, const double* x_next,
+                                      double spring_constant);
 
         double get_potential() const;
         double get_Vn(int n) const;
@@ -50,7 +51,7 @@ namespace LAMMPS_NS {
         int np;
         int bead_num;
         double beta;
-        double ff;
+        double spring_constant;
         const double* x;
         const double* x_prev;
         const double* x_next;

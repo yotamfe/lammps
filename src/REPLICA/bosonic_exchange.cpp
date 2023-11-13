@@ -18,11 +18,12 @@ BosonicExchange::BosonicExchange(LAMMPS *lmp, int nbosons, int np, int bead_num,
     memory->create(connection_probabilities, nbosons * nbosons, "BosonicExchange: connection probabilities");
 }
 
-void BosonicExchange::init(const double* x, const double* x_prev, const double* x_next, double ff) {
+void BosonicExchange::prepare_with_coordinates(const double* x, const double* x_prev, const double* x_next,
+                                               double spring_constant) {
     this->x = x;
     this->x_prev = x_prev;
     this->x_next = x_next;
-    this->ff = ff;
+    this->spring_constant = spring_constant;
 
     evaluate_cycle_energies();
     if (bead_num == 0 || bead_num == np - 1) {
@@ -95,11 +96,11 @@ void BosonicExchange::evaluate_cycle_energies()
 
         for (int v = 0; v < nbosons; v++) {
             set_Enk(v + 1, 1,
-                    -0.5 * ff * separate_atom_spring[v]);
+                    -0.5 * spring_constant * separate_atom_spring[v]);
 
             for (int u = v - 1; u >= 0; u--) {
                 double val = get_Enk(v + 1, v - u) +
-                             -0.5 * ff * (
+                             -0.5 * spring_constant * (
                                      // Eint(u)
                                      separate_atom_spring[u] - distance_squared_two_beads(x_first_bead, u, x_last_bead, u)
                                      // connect u to u+1
@@ -275,9 +276,9 @@ double BosonicExchange::spring_force_last_bead(double** f)
 
         virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
 
-        f[l][0] -= sum_x * ff;
-        f[l][1] -= sum_y * ff;
-        f[l][2] -= sum_z * ff;
+        f[l][0] -= sum_x * spring_constant;
+        f[l][1] -= sum_y * spring_constant;
+        f[l][2] -= sum_z * spring_constant;
     }
 
     return virial;
@@ -316,9 +317,9 @@ double BosonicExchange::spring_force_first_bead(double** f)
 
         virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
 
-        f[l][0] -= sum_x * ff;
-        f[l][1] -= sum_y * ff;
-        f[l][2] -= sum_z * ff;
+        f[l][0] -= sum_x * spring_constant;
+        f[l][1] -= sum_y * spring_constant;
+        f[l][2] -= sum_z * spring_constant;
     }
 
     return virial;
@@ -349,9 +350,9 @@ double BosonicExchange::spring_force_interior_bead(double **f)
 
         virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
 
-        f[l][0] -= sum_x * ff;
-        f[l][1] -= sum_y * ff;
-        f[l][2] -= sum_z * ff;
+        f[l][0] -= sum_x * spring_constant;
+        f[l][1] -= sum_y * spring_constant;
+        f[l][2] -= sum_z * spring_constant;
     }
 
     return virial;
