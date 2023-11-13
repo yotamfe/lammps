@@ -214,19 +214,13 @@ double BosonicExchange::get_E_kn_serial_order(int i) const {
 /* ---------------------------------------------------------------------- */
 
 double BosonicExchange::spring_force(double** f) {
-    if (bead_num != 0 && bead_num != np - 1) {
-        // interior beads
-//        FixPIMD::spring_force();
-        // TODO: complete
-        return 0.0;
-    } else {
-        // exterior beads
-        if (bead_num == np - 1) {
-            return spring_force_last_bead(f);
-        } else {
-            return spring_force_first_bead(f);
-        }
+    if (bead_num == np - 1) {
+        return spring_force_last_bead(f);
     }
+    if (bead_num == 0) {
+        return spring_force_first_bead(f);
+    }
+    return spring_force_interior_bead(f);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -316,6 +310,39 @@ double BosonicExchange::spring_force_first_bead(double** f)
 
         double diff_next[3];
         diff_two_beads(x_first_bead, l, x_next, l, diff_next);
+        sum_x += diff_next[0];
+        sum_y += diff_next[1];
+        sum_z += diff_next[2];
+
+        virial += -0.5 * (x[3 * l + 0] * f[l][0] + x[3 * l + 1] * f[l][1] + x[3 * l + 2] * f[l][2]);
+
+        f[l][0] -= sum_x * ff;
+        f[l][1] -= sum_y * ff;
+        f[l][2] -= sum_z * ff;
+    }
+
+    return virial;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double BosonicExchange::spring_force_interior_bead(double **f)
+{
+    double virial = 0.0;
+
+    for (int l = 0; l < nbosons; l++) {
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        double sum_z = 0.0;
+
+        double diff_prev[3];
+        diff_two_beads(x, l, x_prev, l, diff_prev);
+        sum_x += diff_prev[0];
+        sum_y += diff_prev[1];
+        sum_z += diff_prev[2];
+
+        double diff_next[3];
+        diff_two_beads(x, l, x_next, l, diff_next);
         sum_x += diff_next[0];
         sum_y += diff_next[1];
         sum_z += diff_next[2];

@@ -42,6 +42,7 @@ namespace LAMMPS_NS {
         void evaluate_connection_probabilities();
         double spring_force_last_bead(double** f);
         double spring_force_first_bead(double** f);
+        double spring_force_interior_bead(double** f);
         void Evaluate_VBn();
         void Evaluate_V_backwards();
 

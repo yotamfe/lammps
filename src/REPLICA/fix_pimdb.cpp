@@ -83,19 +83,10 @@ void FixPIMDB::setup(int vflag)
 void FixPIMDB::spring_force() {
     double ff = fbond * atom->mass[atom->type[0]]; // TODO: ensure that all masses are the same
     bosonic_exchange.init(*(atom->x), buf_beads[x_last], buf_beads[x_next], ff);
-
-    if (universe->me != 0 && universe->me != np - 1) {
-        // interior beads
-        FixPIMD::spring_force();
-        spring_energy = 0.0;
-    } else {
-        // exterior beads
-        virial = bosonic_exchange.spring_force(atom->f);
-        if (universe->me == np - 1) {
-            spring_energy = bosonic_exchange.get_potential();
-        } else {
-            spring_energy = 0.0;
-        }
+    virial = bosonic_exchange.spring_force(atom->f);
+    
+    if (universe->me == np - 1) {
+        spring_energy = bosonic_exchange.get_potential();
     }
 }
 
