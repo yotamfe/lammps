@@ -102,7 +102,13 @@ FixPIMD::FixPIMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
       if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd");
     } else if (strcmp(arg[i], "nve") == 0) {
-      nve = true;
+      if (strcmp(arg[i + 1], "true") == 0) {
+        nve = true;
+      } else if (strcmp(arg[i + 1], "false") == 0) {
+        nve = false;
+      } else {
+        error->universe_all(FLERR, "Invalid nve value for fix pimd");
+      }
     } else
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd", arg[i]));
   }
