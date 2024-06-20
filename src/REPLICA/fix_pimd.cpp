@@ -70,6 +70,7 @@ FixPIMD::FixPIMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   nhc_eta_mass = nullptr;
 
   method = PIMD;
+  nve = false;
   fmass = 1.0;
   nhc_temp = 298.15;
   nhc_nchain = 2;
@@ -100,6 +101,8 @@ FixPIMD::FixPIMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[i], "nhc") == 0) {
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
       if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd");
+    } else if (strcmp(arg[i], "nve") == 0) {
+      nve = true;
     } else
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd", arg[i]));
   }
@@ -415,7 +418,9 @@ void FixPIMD::nhc_update_v()
     // Update particle velocities half-step
 
     double factor_eta = exp(-dthalf * eta_dot[0]);
-    vv[idim] *= factor_eta;
+    if (!nve) {
+        vv[idim] *= factor_eta;
+    }
 
     t_current *= (factor_eta * factor_eta);
     kecurrent = force->boltz * t_current;

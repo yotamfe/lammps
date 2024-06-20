@@ -52,6 +52,7 @@ class FixPIMD : public Fix {
   void unpack_forward_comm(int, int, double *) override;
 
   int method;
+  bool nve;
   int np;
   double inverse_np;
 
