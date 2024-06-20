@@ -54,7 +54,7 @@ FixPIMDB::FixPIMDB(LAMMPS *lmp, int narg, char **arg) : FixPIMD(lmp, narg, arg)
   nbosons    = atom->nlocal;
   nevery     = 100; // TODO: make configurable (thermo_style?)
   
-  memory->create(temp_nbosons_array, nbosons, "FixPIMDB: temp_nbosons_array");
+  memory->create(temp_nbosons_array, nbosons + 1, "FixPIMDB: temp_nbosons_array");
   memory->create(separate_atom_spring, nbosons, "FixPIMDB: separate_atom_spring");
   memory->create(E_kn, (nbosons * (nbosons + 1) / 2), "FixPIMDB: E_kn");
   memory->create(V, nbosons + 1, "FixPIMDB: V");
