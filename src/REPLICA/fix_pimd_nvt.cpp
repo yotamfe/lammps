@@ -134,7 +134,7 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 
   global_freq = 1;
   vector_flag = 1;
-  size_vector = 3;
+  size_vector = 4;
   extvector = 1;
   comm_forward = 3;
 
@@ -917,5 +917,6 @@ double FixPIMDNVT::compute_vector(int n)
   if (n == 0) return spring_energy;
   if (n == 1) return t_sys;
   if (n == 2) return virial;
+  if (n == 3) return 0.5 * (1.0 / beta) * -spring_energy;
   return 0.0;
 }
