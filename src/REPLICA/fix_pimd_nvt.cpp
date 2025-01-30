@@ -917,6 +917,6 @@ double FixPIMDNVT::compute_vector(int n)
   if (n == 0) return spring_energy;
   if (n == 1) return t_sys;
   if (n == 2) return virial;
-  if (n == 3) return 0.5 * (1.0 / beta) * -spring_energy;
+  if (n == 3) return 0.5 * (1.0 / beta) + -spring_energy;
   return 0.0;
 }
