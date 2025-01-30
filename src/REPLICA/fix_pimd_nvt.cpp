@@ -73,6 +73,7 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   spring_energy = t_sys = virial = 0.0;
 
   method = PIMD;
+  nve = false;
   fmass = 1.0;
   nhc_temp = 298.15;
   nhc_nchain = 2;
@@ -103,7 +104,15 @@ FixPIMDNVT::FixPIMDNVT(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[i], "nhc") == 0) {
       nhc_nchain = utils::inumeric(FLERR, arg[i + 1], false, lmp);
       if (nhc_nchain < 2) error->universe_all(FLERR, "Invalid nhc value for fix pimd/nvt");
-    } else
+    } else if (strcmp(arg[i], "nve") == 0) {
+      if (strcmp(arg[i + 1], "true") == 0) {
+        nve = true;
+      } else if (strcmp(arg[i + 1], "false") == 0) {
+        nve = false;
+      } else {
+        error->universe_all(FLERR, "Invalid nve value for fix pimd/nvt");
+      }
+    }  else
       error->universe_all(FLERR, fmt::format("Unknown keyword {} for fix pimd/nvt", arg[i]));
   }
 

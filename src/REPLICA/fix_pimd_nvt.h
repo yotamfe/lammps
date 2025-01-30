@@ -57,6 +57,7 @@ class FixPIMDNVT : public Fix {
  protected:
 
   int method;
+  bool nve;
   int np;
   double inverse_np;
 
