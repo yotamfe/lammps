@@ -46,7 +46,7 @@ using namespace FixConst;
 
 FixPIMDBLangevin::FixPIMDBLangevin(LAMMPS *lmp, int narg, char **arg) :
     FixPIMDLangevin(lmp, narg, arg), nbosons(atom->nlocal),
-    bosonic_exchange(lmp, atom->nlocal, np, universe->me, false, false)
+    bosonic_exchange(lmp, atom->nlocal, np, universe->me, true, false)
 {
     for (int i = 3; i < narg - 1; i += 2) {
         if ((strcmp(arg[i], "method") == 0) && (strcmp(arg[i+1], "pimd") != 0)) {
