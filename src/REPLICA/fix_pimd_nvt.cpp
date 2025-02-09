@@ -435,7 +435,9 @@ void FixPIMDNVT::nhc_update_v()
     // Update particle velocities half-step
 
     double factor_eta = exp(-dthalf * eta_dot[0]);
-    vv[idim] *= factor_eta;
+    if (!nve) {
+      vv[idim] *= factor_eta;
+    }
 
     t_current *= (factor_eta * factor_eta);
     kecurrent = force->boltz * t_current;
